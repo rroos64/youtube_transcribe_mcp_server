@@ -5,9 +5,10 @@ import re
 import subprocess
 import tempfile
 import uuid
+import urllib.parse
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict
 
 from fastmcp import FastMCP
 
@@ -17,10 +18,10 @@ mcp = FastMCP(
     instructions=(
         "Fetches YouTube subtitles via yt-dlp and returns cleaned transcripts. "
         "Use youtube_get_duration for metadata, youtube_transcribe_auto to choose text vs file "
-        "output, or youtube_transcribe_to_file for large outputs and read_file_chunk/read_file_info "
-        "to page. File outputs require a client-provided session_id."
+        "output, or youtube_transcribe_to_file for file output and read_file_chunk/read_file_info "
+        "to page. Storage is session-scoped under /data/<session_id>. Resources are available at "
+        "transcripts://session/* and templates at template://transcript/*."
     ),
-    stateless_http=True,
 )
 
 # ---------- Config ----------
@@ -30,13 +31,19 @@ REMOTE_EJS = os.environ.get("YTDLP_REMOTE_EJS", "ejs:github")
 SUB_LANG = os.environ.get("YTDLP_SUB_LANG", "en.*")
 TIMEOUT_SEC = int(os.environ.get("YTDLP_TIMEOUT_SEC", "180"))
 AUTO_TEXT_MAX_BYTES = int(os.environ.get("AUTO_TEXT_MAX_BYTES", "200000"))
-DEFAULT_TTL_SEC = int(os.environ.get("DEFAULT_TTL_SEC", "3600"))
+DEFAULT_TTL_SEC = int(os.environ.get("TRANSCRIPT_TTL_SECONDS", os.environ.get("DEFAULT_TTL_SEC", "3600")))
+INLINE_TEXT_MAX_BYTES = int(os.environ.get("INLINE_TEXT_MAX_BYTES", "20000"))
+MAX_SESSION_ITEMS = int(os.environ.get("MAX_SESSION_ITEMS", "0"))
+MAX_SESSION_BYTES = int(os.environ.get("MAX_SESSION_BYTES", "0"))
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 _YT_URL_RE = re.compile(r"^https?://(www\.)?youtube\.com/watch\?v=|^https?://youtu\.be/")
 _SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_TRANSCRIPTS_DIR = "transcripts"
+_DERIVED_DIR = "derived"
+_MANIFEST_NAME = "manifest.json"
 
 # ---------- Helpers ----------
 def _is_youtube_url(url: str) -> bool:
@@ -49,149 +56,264 @@ def _validate_session_id(session_id: str) -> str:
     return session_id
 
 
-def _session_dir(session_id: str) -> Path:
-    session_id = _validate_session_id(session_id)
-    p = DATA_DIR / session_id
-    p.mkdir(parents=True, exist_ok=True)
-    return p
+def _extract_session_id(ctx: Any | None) -> str | None:
+    if ctx is None:
+        return None
+
+    if isinstance(ctx, dict):
+        for key in ("mcp-session-id", "mcp_session_id", "session_id", "sessionId"):
+            val = ctx.get(key)
+            if val:
+                return str(val)
+
+    for attr in ("session_id", "sessionId"):
+        val = getattr(ctx, attr, None)
+        if val:
+            return str(val)
+
+    headers = None
+    if hasattr(ctx, "headers"):
+        headers = getattr(ctx, "headers", None)
+    elif hasattr(ctx, "request"):
+        headers = getattr(getattr(ctx, "request", None), "headers", None)
+
+    if headers is not None:
+        for key in ("mcp-session-id", "MCP-Session-Id", "x-mcp-session-id"):
+            if hasattr(headers, "get"):
+                val = headers.get(key)
+                if val:
+                    return str(val)
+    return None
 
 
-def _meta_dir(session_id: str) -> Path:
-    d = _session_dir(session_id) / ".meta"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+def _get_session_id(session_id: str | None = None, ctx: Any | None = None) -> str:
+    ctx_id = _extract_session_id(ctx)
+    if session_id and ctx_id and session_id != ctx_id:
+        raise ValueError("session_id does not match mcp-session-id header")
+    if session_id:
+        return _validate_session_id(session_id)
+    if ctx_id:
+        return _validate_session_id(ctx_id)
+    raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
 
-def _is_within_data_dir(p: Path) -> bool:
-    try:
-        p.resolve().relative_to(DATA_DIR.resolve())
-        return True
-    except ValueError:
-        return False
-
-
-def _resolve_path(path: str) -> Path:
-    p = Path(path)
-    if not p.is_absolute():
-        p = (DATA_DIR / p).resolve()
-    else:
-        p = p.resolve()
-
-    if not _is_within_data_dir(p):
-        raise ValueError("path must be within DATA_DIR")
-    return p
-
-
-def _make_handle() -> str:
-    return f"tr_{uuid.uuid4().hex}"
+def _now_iso() -> str:
+    return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
 
 def _expires_at(ttl_seconds: int) -> str:
     return (datetime.utcnow() + timedelta(seconds=ttl_seconds)).replace(microsecond=0).isoformat() + "Z"
 
 
-def _write_meta(
-    session_id: str, handle: str, relpath: str, expires_at: str | None, persisted: bool, fmt: str
-) -> Path:
-    meta = {
-        "handle": handle,
-        "session_id": session_id,
-        "relpath": relpath,
-        "expires_at": expires_at,
-        "persisted": persisted,
-        "fmt": fmt,
-        "created_at": datetime.utcnow().replace(microsecond=0).isoformat() + "Z",
-    }
-    meta_path = _meta_dir(session_id) / f"{handle}.json"
-    meta_path.write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-    return meta_path
-
-
-def _load_meta(session_id: str, handle: str) -> dict:
-    meta_path = _meta_dir(session_id) / f"{handle}.json"
-    if not meta_path.exists():
-        raise ValueError(f"Handle not found: {handle}")
-    return json.loads(meta_path.read_text(encoding="utf-8"))
-
-
-def _is_expired(expires_at: str) -> bool:
+def _parse_ts(ts: str | None) -> datetime | None:
+    if not ts:
+        return None
     try:
-        ts = expires_at[:-1] if expires_at.endswith("Z") else expires_at
-        dt = datetime.fromisoformat(ts)
+        raw = ts[:-1] if ts.endswith("Z") else ts
+        return datetime.fromisoformat(raw)
     except ValueError:
+        return None
+
+
+def _is_within_root(p: Path, root: Path) -> bool:
+    try:
+        p.resolve().relative_to(root.resolve())
         return True
-    return datetime.utcnow() >= dt
+    except ValueError:
+        return False
 
 
-def _cleanup_expired(session_id: str | None = None) -> int:
-    if session_id is not None:
-        meta_paths = _meta_dir(session_id).glob("*.json")
-    else:
-        meta_paths = DATA_DIR.glob("*/.meta/*.json")
+def _session_root(session_id: str) -> Path:
+    session_id = _validate_session_id(session_id)
+    root = DATA_DIR / session_id
+    root.mkdir(parents=True, exist_ok=True)
+    (root / _TRANSCRIPTS_DIR).mkdir(parents=True, exist_ok=True)
+    (root / _DERIVED_DIR).mkdir(parents=True, exist_ok=True)
+    return root
 
-    removed = 0
-    for meta_path in meta_paths:
+
+def _transcripts_dir(session_id: str) -> Path:
+    return _session_root(session_id) / _TRANSCRIPTS_DIR
+
+
+def _derived_dir(session_id: str) -> Path:
+    return _session_root(session_id) / _DERIVED_DIR
+
+
+def _manifest_path(session_id: str) -> Path:
+    return _session_root(session_id) / _MANIFEST_NAME
+
+
+def _load_manifest(session_id: str) -> dict:
+    path = _manifest_path(session_id)
+    if path.exists():
         try:
-            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
+            data = {}
+    else:
+        data = {}
+
+    if not isinstance(data, dict):
+        data = {}
+
+    data.setdefault("session_id", session_id)
+    data.setdefault("created_at", _now_iso())
+    data.setdefault("items", [])
+    if not isinstance(data["items"], list):
+        data["items"] = []
+    return data
+
+
+def _save_manifest(session_id: str, manifest: dict) -> None:
+    path = _manifest_path(session_id)
+    path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _make_id() -> str:
+    return f"tr_{uuid.uuid4().hex}"
+
+
+def _resolve_relpath(session_id: str, relpath: str) -> Path:
+    if not relpath or relpath.startswith("/") or ".." in relpath.split("/"):
+        raise ValueError("relpath must be a safe relative path")
+    root = _session_root(session_id)
+    p = (root / relpath).resolve()
+    if not _is_within_root(p, root):
+        raise ValueError("relpath resolves outside session directory")
+    return p
+
+
+def _item_sort_key(item: dict) -> tuple[datetime, str]:
+    ts = _parse_ts(item.get("created_at")) or datetime.min
+    return ts, item.get("id", "")
+
+
+def _cleanup_session(session_id: str) -> int:
+    session_id = _validate_session_id(session_id)
+    manifest = _load_manifest(session_id)
+    root = _session_root(session_id)
+
+    kept: list[dict] = []
+    removed = 0
+    now = datetime.utcnow()
+    changed = False
+
+    for item in manifest.get("items", []):
+        relpath = item.get("relpath")
+        if not relpath:
+            changed = True
             continue
 
-        if meta.get("persisted"):
+        try:
+            p = _resolve_relpath(session_id, relpath)
+        except ValueError:
+            changed = True
             continue
 
-        expires_at = meta.get("expires_at")
-        if not expires_at or not _is_expired(expires_at):
+        if not p.exists():
+            changed = True
+            removed += 1
             continue
 
-        relpath = meta.get("relpath")
-        if relpath:
-            target = (DATA_DIR / relpath).resolve()
-            if _is_within_data_dir(target) and target.exists():
+        pinned = bool(item.get("pinned"))
+        expires_at = item.get("expires_at")
+        expires_dt = _parse_ts(expires_at)
+        if not pinned:
+            if expires_dt is None:
+                expires_at = _expires_at(DEFAULT_TTL_SEC)
+                item["expires_at"] = expires_at
+                expires_dt = _parse_ts(expires_at)
+                changed = True
+
+            if expires_dt and now >= expires_dt:
                 try:
-                    target.unlink()
+                    p.unlink()
                 except OSError:
                     pass
+                removed += 1
+                changed = True
+                continue
 
-        try:
-            meta_path.unlink()
-        except OSError:
-            pass
-        removed += 1
+        item["size"] = p.stat().st_size
+        kept.append(item)
+
+    manifest["items"] = kept
+
+    if MAX_SESSION_ITEMS > 0 or MAX_SESSION_BYTES > 0:
+        total_size = sum(int(i.get("size") or 0) for i in kept)
+        removable = sorted([i for i in kept if not i.get("pinned")], key=_item_sort_key)
+        while removable and (
+            (MAX_SESSION_ITEMS > 0 and len(kept) > MAX_SESSION_ITEMS)
+            or (MAX_SESSION_BYTES > 0 and total_size > MAX_SESSION_BYTES)
+        ):
+            victim = removable.pop(0)
+            try:
+                vp = _resolve_relpath(session_id, victim.get("relpath", ""))
+                if vp.exists():
+                    vp.unlink()
+            except (OSError, ValueError):
+                pass
+            total_size -= int(victim.get("size") or 0)
+            kept.remove(victim)
+            removed += 1
+            changed = True
+
+    if changed:
+        _save_manifest(session_id, manifest)
 
     return removed
 
 
-def _resolve_handle(session_id: str, handle: str) -> tuple[Path, dict]:
-    session_id = _validate_session_id(session_id)
-    _cleanup_expired(session_id)
-    meta = _load_meta(session_id, handle)
+def _find_item(manifest: dict, item_id: str | None = None, relpath: str | None = None) -> dict | None:
+    for item in manifest.get("items", []):
+        if item_id and item.get("id") == item_id:
+            return item
+        if relpath and item.get("relpath") == relpath:
+            return item
+    return None
 
-    if not meta.get("persisted") and meta.get("expires_at") and _is_expired(meta["expires_at"]):
-        relpath = meta.get("relpath")
-        if relpath:
-            target = (DATA_DIR / relpath).resolve()
-            if _is_within_data_dir(target) and target.exists():
-                try:
-                    target.unlink()
-                except OSError:
-                    pass
-        try:
-            (_meta_dir(session_id) / f"{handle}.json").unlink()
-        except OSError:
-            pass
-        raise ValueError("Transcript expired; request a new transcription.")
 
-    relpath = meta.get("relpath")
-    if not relpath:
-        raise ValueError("Handle metadata missing relpath.")
+def _add_item(
+    session_id: str,
+    kind: str,
+    fmt: str,
+    relpath: str,
+    pinned: bool,
+    ttl_seconds: int,
+) -> dict:
+    manifest = _load_manifest(session_id)
+    item_id = _make_id()
+    created_at = _now_iso()
+    expires_at = None if pinned else _expires_at(ttl_seconds)
+    p = _resolve_relpath(session_id, relpath)
+    size = p.stat().st_size
 
-    p = (DATA_DIR / relpath).resolve()
-    if not _is_within_data_dir(p):
-        raise ValueError("Resolved path is outside DATA_DIR.")
+    item = {
+        "id": item_id,
+        "kind": kind,
+        "format": fmt,
+        "relpath": relpath,
+        "size": size,
+        "created_at": created_at,
+        "expires_at": expires_at,
+        "pinned": pinned,
+    }
+    manifest["items"].append(item)
+    _save_manifest(session_id, manifest)
+    _cleanup_session(session_id)
+    return item
+
+
+def _get_item(session_id: str, item_id: str | None = None, relpath: str | None = None) -> tuple[dict, Path]:
+    manifest = _load_manifest(session_id)
+    item = _find_item(manifest, item_id=item_id, relpath=relpath)
+    if not item:
+        raise ValueError("Item not found")
+    p = _resolve_relpath(session_id, item.get("relpath", ""))
     if not p.exists():
         raise ValueError(f"File does not exist: {p}")
-
-    return p, meta
+    return item, p
 
 
 def _vtt_to_lines(vtt: str) -> list[str]:
@@ -407,9 +529,9 @@ def youtube_transcribe(url: str) -> str:
 
 
 @mcp.tool
-def youtube_transcribe_to_file(url: str, session_id: str, fmt: str = "txt") -> dict:
+def youtube_transcribe_to_file(url: str, fmt: str = "txt", session_id: str | None = None, ctx: Any | None = None) -> dict:
     """
-    Saves transcript under /data/<session_id> and returns a handle object.
+    Saves transcript under /data/<session_id>/transcripts and returns a manifest item object.
     fmt: "txt" | "vtt" | "jsonl"
     """
     if not _is_youtube_url(url):
@@ -417,28 +539,36 @@ def youtube_transcribe_to_file(url: str, session_id: str, fmt: str = "txt") -> d
     if fmt not in ("txt", "vtt", "jsonl"):
         raise ValueError("fmt must be one of: txt, vtt, jsonl")
 
-    session_id = _validate_session_id(session_id)
-    _cleanup_expired(session_id)
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
 
     res = _run_ytdlp_subs(url)
     vtt_text = res["vtt_text"]
     transcript_txt = _vtt_to_text(vtt_text)
 
-    base = _make_output_base(url, _session_dir(session_id))
+    base = _make_output_base(url, _transcripts_dir(session_id))
     out = _write_transcript(base, fmt, transcript_txt, vtt_text)
-    relpath = out.relative_to(DATA_DIR).as_posix()
+    relpath = out.relative_to(_session_root(session_id)).as_posix()
 
-    handle = _make_handle()
-    expires_at = _expires_at(DEFAULT_TTL_SEC)
-    _write_meta(session_id, handle, relpath, expires_at, False, fmt)
+    item = _add_item(
+        session_id=session_id,
+        kind="transcript",
+        fmt=fmt,
+        relpath=relpath,
+        pinned=False,
+        ttl_seconds=DEFAULT_TTL_SEC,
+    )
 
     return {
-        "handle": handle,
+        "id": item["id"],
         "session_id": session_id,
-        "relpath": relpath,
-        "expires_at": expires_at,
-        "persisted": False,
-        "fmt": fmt,
+        "relpath": item["relpath"],
+        "expires_at": item.get("expires_at"),
+        "pinned": item.get("pinned", False),
+        "format": item.get("format"),
+        "size": item.get("size"),
+        "kind": item.get("kind"),
+        "created_at": item.get("created_at"),
     }
 
 
@@ -461,10 +591,14 @@ def youtube_get_duration(url: str) -> dict:
 
 @mcp.tool
 def youtube_transcribe_auto(
-    url: str, fmt: str = "txt", max_text_bytes: int | None = None, session_id: str | None = None
+    url: str,
+    fmt: str = "txt",
+    max_text_bytes: int | None = None,
+    session_id: str | None = None,
+    ctx: Any | None = None,
 ) -> dict:
     """
-    Returns transcript text if small enough; otherwise writes to /data/<session_id> and returns a handle.
+    Returns transcript text if small enough; otherwise writes to /data/<session_id>/transcripts and returns a manifest item object.
     fmt: "txt" | "vtt" | "jsonl"
     """
     if not _is_youtube_url(url):
@@ -502,28 +636,33 @@ def youtube_transcribe_auto(
             "is_live": is_live,
         }
 
-    if not session_id:
-        raise ValueError("session_id is required when transcript exceeds max_text_bytes")
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
 
-    session_id = _validate_session_id(session_id)
-    _cleanup_expired(session_id)
-
-    base = _make_output_base(url, _session_dir(session_id))
+    base = _make_output_base(url, _transcripts_dir(session_id))
     out = _write_transcript(base, fmt, transcript_txt, vtt_text)
-    relpath = out.relative_to(DATA_DIR).as_posix()
-    handle = _make_handle()
-    expires_at = _expires_at(DEFAULT_TTL_SEC)
-    _write_meta(session_id, handle, relpath, expires_at, False, fmt)
+    relpath = out.relative_to(_session_root(session_id)).as_posix()
+
+    item = _add_item(
+        session_id=session_id,
+        kind="transcript",
+        fmt=fmt,
+        relpath=relpath,
+        pinned=False,
+        ttl_seconds=DEFAULT_TTL_SEC,
+    )
 
     return {
         "kind": "file",
-        "handle": handle,
+        "id": item["id"],
         "session_id": session_id,
-        "relpath": relpath,
-        "expires_at": expires_at,
-        "persisted": False,
+        "relpath": item["relpath"],
+        "expires_at": item.get("expires_at"),
+        "pinned": item.get("pinned", False),
+        "format": item.get("format"),
+        "size": item.get("size"),
+        "created_at": item.get("created_at"),
         "bytes": text_bytes,
-        "fmt": fmt,
         "duration": duration,
         "duration_string": duration_string,
         "title": title,
@@ -532,61 +671,233 @@ def youtube_transcribe_auto(
 
 
 @mcp.tool
-def read_file_info(path: str | None = None, handle: str | None = None, session_id: str | None = None) -> dict:
+def list_session_items(
+    kind: str | None = None,
+    format: str | None = None,
+    pinned: bool | None = None,
+    session_id: str | None = None,
+    ctx: Any | None = None,
+) -> dict:
     """
-    Returns file size and normalized path.
-    Provide either (handle + session_id) or path.
+    Lists manifest items for the current session.
+    Optional filters: kind, format, pinned.
     """
-    if handle:
-        if not session_id:
-            raise ValueError("session_id is required when using handle")
-        p, meta = _resolve_handle(session_id, handle)
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    manifest = _load_manifest(session_id)
+    items = manifest.get("items", [])
+    if kind:
+        items = [i for i in items if i.get("kind") == kind]
+    if format:
+        items = [i for i in items if i.get("format") == format]
+    if pinned is not None:
+        items = [i for i in items if bool(i.get("pinned")) == pinned]
+    return {"session_id": session_id, "items": items}
+
+
+@mcp.tool
+def pin_item(item_id: str, session_id: str | None = None, ctx: Any | None = None) -> dict:
+    """
+    Pins an item to prevent TTL cleanup.
+    """
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    manifest = _load_manifest(session_id)
+    item = _find_item(manifest, item_id=item_id)
+    if not item:
+        raise ValueError("Item not found")
+    item["pinned"] = True
+    item["expires_at"] = None
+    _save_manifest(session_id, manifest)
+    return item
+
+
+@mcp.tool
+def unpin_item(item_id: str, session_id: str | None = None, ctx: Any | None = None) -> dict:
+    """
+    Unpins an item and re-applies default TTL.
+    """
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    manifest = _load_manifest(session_id)
+    item = _find_item(manifest, item_id=item_id)
+    if not item:
+        raise ValueError("Item not found")
+    item["pinned"] = False
+    item["expires_at"] = _expires_at(DEFAULT_TTL_SEC)
+    _save_manifest(session_id, manifest)
+    return item
+
+
+@mcp.tool
+def set_item_ttl(item_id: str, ttl_seconds: int, session_id: str | None = None, ctx: Any | None = None) -> dict:
+    """
+    Sets TTL for an item (unpinned).
+    """
+    if ttl_seconds < 1:
+        raise ValueError("ttl_seconds must be >= 1")
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    manifest = _load_manifest(session_id)
+    item = _find_item(manifest, item_id=item_id)
+    if not item:
+        raise ValueError("Item not found")
+    item["pinned"] = False
+    item["expires_at"] = _expires_at(ttl_seconds)
+    _save_manifest(session_id, manifest)
+    return item
+
+
+@mcp.tool
+def delete_item(item_id: str, session_id: str | None = None, ctx: Any | None = None) -> dict:
+    """
+    Deletes a stored item and removes it from the manifest.
+    """
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    manifest = _load_manifest(session_id)
+    item = _find_item(manifest, item_id=item_id)
+    if not item:
+        raise ValueError("Item not found")
+    relpath = item.get("relpath", "")
+    try:
+        p = _resolve_relpath(session_id, relpath)
+        if p.exists():
+            p.unlink()
+    except (OSError, ValueError):
+        pass
+    manifest["items"] = [i for i in manifest.get("items", []) if i.get("id") != item_id]
+    _save_manifest(session_id, manifest)
+    return {"deleted": True, "id": item_id}
+
+
+@mcp.tool
+def write_text_file(
+    relpath: str,
+    content: str,
+    overwrite: bool = False,
+    session_id: str | None = None,
+    ctx: Any | None = None,
+) -> dict:
+    """
+    Writes a derived text file under /data/<session_id>/derived and registers it in the manifest.
+    """
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    if not relpath:
+        raise ValueError("relpath is required")
+    if relpath.startswith("/") or ".." in relpath.split("/"):
+        raise ValueError("relpath must be a safe relative path")
+
+    target = (_derived_dir(session_id) / relpath).resolve()
+    if not _is_within_root(target, _derived_dir(session_id)):
+        raise ValueError("relpath resolves outside derived directory")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists() and not overwrite:
+        raise ValueError("File already exists; set overwrite=true to replace")
+
+    target.write_text(content, encoding="utf-8")
+    fmt = target.suffix.lstrip(".") or "txt"
+    rel = target.relative_to(_session_root(session_id)).as_posix()
+
+    item = _add_item(
+        session_id=session_id,
+        kind="derived",
+        fmt=fmt,
+        relpath=rel,
+        pinned=False,
+        ttl_seconds=DEFAULT_TTL_SEC,
+    )
+    return {
+        "id": item["id"],
+        "session_id": session_id,
+        "relpath": item["relpath"],
+        "expires_at": item.get("expires_at"),
+        "pinned": item.get("pinned", False),
+        "format": item.get("format"),
+        "size": item.get("size"),
+        "kind": item.get("kind"),
+        "created_at": item.get("created_at"),
+    }
+
+
+@mcp.tool
+def read_file_info(
+    item_id: str | None = None,
+    relpath: str | None = None,
+    session_id: str | None = None,
+    ctx: Any | None = None,
+) -> dict:
+    """
+    Returns file size and normalized path for a session-scoped item.
+    Provide either item_id or relpath.
+    """
+    if not item_id and not relpath:
+        raise ValueError("Provide either item_id or relpath")
+
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    manifest = _load_manifest(session_id)
+    item = _find_item(manifest, item_id=item_id, relpath=relpath)
+    if item:
+        p = _resolve_relpath(session_id, item.get("relpath", ""))
         size = p.stat().st_size
-        resp = {
-            "handle": handle,
+        item["size"] = size
+        _save_manifest(session_id, manifest)
+
+        return {
+            "id": item.get("id"),
             "session_id": session_id,
             "path": str(p),
-            "relpath": meta.get("relpath"),
+            "relpath": item.get("relpath"),
             "size": size,
-            "persisted": bool(meta.get("persisted")),
+            "pinned": bool(item.get("pinned")),
+            "expires_at": item.get("expires_at"),
+            "format": item.get("format"),
+            "kind": item.get("kind"),
         }
-        if meta.get("expires_at"):
-            resp["expires_at"] = meta["expires_at"]
-        return resp
 
-    if not path:
-        raise ValueError("Provide either handle+session_id or path")
+    if relpath:
+        p = _resolve_relpath(session_id, relpath)
+        size = p.stat().st_size
+        return {
+            "id": None,
+            "session_id": session_id,
+            "path": str(p),
+            "relpath": relpath,
+            "size": size,
+        }
 
-    _cleanup_expired()
-    p = _resolve_path(path)
-    if not p.exists():
-        raise ValueError(f"File does not exist: {p}")
-
-    return {"path": str(p), "size": p.stat().st_size}
+    raise ValueError("Item not found")
 
 
 @mcp.tool
 def read_file_chunk(
-    path: str | None = None,
     offset: int = 0,
     max_bytes: int = 200000,
-    handle: str | None = None,
+    item_id: str | None = None,
+    relpath: str | None = None,
     session_id: str | None = None,
+    ctx: Any | None = None,
 ) -> dict:
     """
     Reads a chunk of a saved transcript file (for clients with output limits).
-    Provide either (handle + session_id) or path.
-    Returns: { data, next_offset, eof, size, path }
+    Provide either item_id or relpath.
+    Returns: { data, next_offset, eof, size, path, id }
     """
-    if handle:
-        if not session_id:
-            raise ValueError("session_id is required when using handle")
-        p, _meta = _resolve_handle(session_id, handle)
+    if not item_id and not relpath:
+        raise ValueError("Provide either item_id or relpath")
+
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    manifest = _load_manifest(session_id)
+    item = _find_item(manifest, item_id=item_id, relpath=relpath)
+    if item:
+        p = _resolve_relpath(session_id, item.get("relpath", ""))
+    elif relpath:
+        p = _resolve_relpath(session_id, relpath)
     else:
-        if not path:
-            raise ValueError("Provide either handle+session_id or path")
-        _cleanup_expired()
-        p = _resolve_path(path)
+        raise ValueError("Item not found")
 
     if not p.exists():
         raise ValueError(f"File does not exist: {p}")
@@ -618,7 +929,176 @@ def read_file_chunk(
         "eof": eof,
         "size": size,
         "path": str(p),
+        "id": item.get("id") if item else None,
     }
+
+
+# ---------- MCP Resources & Templates ----------
+def _encode_prompt_payload(
+    name: str,
+    item_id: str,
+    session_id: str | None,
+    prompt: str,
+    extra_inputs: dict | None = None,
+) -> str:
+    inputs: dict = {"item_id": item_id}
+    if session_id:
+        inputs["session_id"] = session_id
+    if extra_inputs:
+        inputs.update(extra_inputs)
+
+    sid_value = session_id or "YOUR_SESSION_ID"
+    steps = [
+        f"Call transcripts://session/{sid_value}/item/{item_id} to get metadata and inline content.",
+        (
+            "If content is missing or truncated, call "
+            f"read_file_chunk(item_id=\"{item_id}\", session_id=\"{sid_value}\", "
+            "offset=0, max_bytes=200000) until eof."
+        ),
+        "Complete the task and output only the result.",
+        f"If you need this transcript later, call pin_item(item_id=\"{item_id}\").",
+    ]
+
+    payload = {
+        "name": name,
+        "inputs": inputs,
+        "prompt": prompt,
+        "recommended_steps": steps,
+    }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.resource("transcripts://session/{session_id}/index")
+def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    manifest = _load_manifest(session_id)
+    return json.dumps(manifest, ensure_ascii=False)
+
+
+@mcp.resource("transcripts://session/{session_id}/latest")
+def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    manifest = _load_manifest(session_id)
+    items = [i for i in manifest.get("items", []) if i.get("kind") == "transcript"]
+    items.sort(key=_item_sort_key)
+    latest = items[-1] if items else None
+    return json.dumps({"session_id": session_id, "item": latest}, ensure_ascii=False)
+
+
+@mcp.resource("transcripts://session/{session_id}/item/{item_id}")
+def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None) -> str:
+    session_id = _get_session_id(session_id=session_id, ctx=ctx)
+    _cleanup_session(session_id)
+    item_id = urllib.parse.unquote(item_id)
+    manifest = _load_manifest(session_id)
+    item = _find_item(manifest, item_id=item_id)
+    if not item:
+        raise ValueError("Item not found")
+
+    p = _resolve_relpath(session_id, item.get("relpath", ""))
+    size = p.stat().st_size
+    item["size"] = size
+    _save_manifest(session_id, manifest)
+
+    content = None
+    truncated = False
+    if size <= INLINE_TEXT_MAX_BYTES:
+        content = p.read_text(encoding="utf-8", errors="replace")
+    else:
+        truncated = True
+
+    payload = {
+        "session_id": session_id,
+        "item": item,
+        "content": content,
+        "truncated": truncated,
+        "inline_max_bytes": INLINE_TEXT_MAX_BYTES,
+    }
+    return json.dumps(payload, ensure_ascii=False)
+
+
+@mcp.resource("template://transcript/paragraphs/{item_id}")
+def template_reflow(item_id: str, ctx: Any | None = None) -> str:
+    session_id = _extract_session_id(ctx)
+    item_id = urllib.parse.unquote(item_id)
+    prompt = (
+        "Reformat the transcript into well-structured paragraphs. Preserve speaker turns if present, "
+        "remove stutters/obvious filler where it improves readability, and keep the original meaning."
+    )
+    return _encode_prompt_payload("paragraphs", item_id, session_id, prompt)
+
+
+@mcp.resource("template://transcript/summary/{item_id}")
+def template_summary(item_id: str, ctx: Any | None = None) -> str:
+    session_id = _extract_session_id(ctx)
+    item_id = urllib.parse.unquote(item_id)
+    prompt = (
+        "Summarize the transcript with:\n"
+        "1) A one-paragraph executive summary.\n"
+        "2) 5-8 bullet key points.\n"
+        "Keep it concise and faithful to the source."
+    )
+    return _encode_prompt_payload("summary", item_id, session_id, prompt)
+
+
+@mcp.resource("template://transcript/translate/{item_id}/{target_lang}")
+def template_translate(item_id: str, target_lang: str, ctx: Any | None = None) -> str:
+    session_id = _extract_session_id(ctx)
+    item_id = urllib.parse.unquote(item_id)
+    target_lang = urllib.parse.unquote(target_lang)
+    prompt = (
+        f"Translate the transcript to {target_lang}. Preserve proper nouns and technical terms. "
+        "Keep formatting clean and readable."
+    )
+    return _encode_prompt_payload("translate", item_id, session_id, prompt, {"target_lang": target_lang})
+
+
+@mcp.resource("template://transcript/outline/{item_id}")
+def template_outline(item_id: str, ctx: Any | None = None) -> str:
+    session_id = _extract_session_id(ctx)
+    item_id = urllib.parse.unquote(item_id)
+    prompt = (
+        "Create a structured outline or table of contents for the transcript. "
+        "Use short section headings and group related content."
+    )
+    return _encode_prompt_payload("outline", item_id, session_id, prompt)
+
+
+@mcp.resource("template://transcript/quotes/{item_id}")
+def template_quotes(item_id: str, ctx: Any | None = None) -> str:
+    session_id = _extract_session_id(ctx)
+    item_id = urllib.parse.unquote(item_id)
+    prompt = (
+        "Extract 5-10 quotable lines from the transcript. "
+        "Each quote should be meaningful and stand alone."
+    )
+    return _encode_prompt_payload("quotes", item_id, session_id, prompt)
+
+
+@mcp.resource("template://transcript/faq/{item_id}")
+def template_faq(item_id: str, ctx: Any | None = None) -> str:
+    session_id = _extract_session_id(ctx)
+    item_id = urllib.parse.unquote(item_id)
+    prompt = "Create a concise FAQ based on the transcript content. Provide short Q/A pairs."
+    return _encode_prompt_payload("faq", item_id, session_id, prompt)
+
+
+@mcp.resource("template://transcript/glossary/{item_id}")
+def template_glossary(item_id: str, ctx: Any | None = None) -> str:
+    session_id = _extract_session_id(ctx)
+    item_id = urllib.parse.unquote(item_id)
+    prompt = "Extract key terms and provide a short glossary (term + 1-2 sentence definition)."
+    return _encode_prompt_payload("glossary", item_id, session_id, prompt)
+
+
+@mcp.resource("template://transcript/action-items/{item_id}")
+def template_action_items(item_id: str, ctx: Any | None = None) -> str:
+    session_id = _extract_session_id(ctx)
+    item_id = urllib.parse.unquote(item_id)
+    prompt = "List action items or next steps implied by the transcript. Use clear, actionable phrasing."
+    return _encode_prompt_payload("action_items", item_id, session_id, prompt)
 
 
 # ---------- Run Server ----------
