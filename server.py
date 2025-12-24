@@ -15,7 +15,8 @@ mcp = FastMCP(
     "yt-dlp-transcriber",
     instructions=(
         "Fetches YouTube subtitles via yt-dlp and returns cleaned transcripts. "
-        "Use youtube_transcribe_to_file for large outputs and read_file_chunk to page."
+        "Use youtube_transcribe_auto to choose text vs file output, or youtube_transcribe_to_file "
+        "for large outputs and read_file_chunk/read_file_info to page."
     ),
     stateless_http=True,
 )
@@ -26,6 +27,7 @@ PLAYER_CLIENT = os.environ.get("YTDLP_PLAYER_CLIENT", "web_safari")
 REMOTE_EJS = os.environ.get("YTDLP_REMOTE_EJS", "ejs:github")
 SUB_LANG = os.environ.get("YTDLP_SUB_LANG", "en.*")
 TIMEOUT_SEC = int(os.environ.get("YTDLP_TIMEOUT_SEC", "180"))
+AUTO_TEXT_MAX_BYTES = int(os.environ.get("AUTO_TEXT_MAX_BYTES", "200000"))
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -166,6 +168,24 @@ def _make_output_base(url: str) -> Path:
     return DATA_DIR / f"youtube_{vid_hash}_{stamp}"
 
 
+def _write_transcript(base: Path, fmt: str, transcript_txt: str, vtt_text: str) -> Path:
+    if fmt == "vtt":
+        out = base.with_suffix(".vtt")
+        out.write_text(vtt_text, encoding="utf-8")
+        return out
+
+    if fmt == "txt":
+        out = base.with_suffix(".txt")
+        out.write_text(transcript_txt + "\n", encoding="utf-8")
+        return out
+
+    out = base.with_suffix(".jsonl")
+    with out.open("w", encoding="utf-8") as f:
+        for line in transcript_txt.splitlines():
+            f.write(json.dumps({"text": line}, ensure_ascii=False) + "\n")
+    return out
+
+
 # ---------- MCP Tools ----------
 @mcp.tool
 def youtube_transcribe(url: str) -> str:
@@ -200,23 +220,55 @@ def youtube_transcribe_to_file(url: str, fmt: str = "txt") -> str:
     transcript_txt = _vtt_to_text(vtt_text)
 
     base = _make_output_base(url)
-
-    if fmt == "vtt":
-        out = base.with_suffix(".vtt")
-        out.write_text(vtt_text, encoding="utf-8")
-        return str(out)
-
-    if fmt == "txt":
-        out = base.with_suffix(".txt")
-        out.write_text(transcript_txt + "\n", encoding="utf-8")
-        return str(out)
-
-    # jsonl: one JSON object per transcript line (clean)
-    out = base.with_suffix(".jsonl")
-    with out.open("w", encoding="utf-8") as f:
-        for line in transcript_txt.splitlines():
-            f.write(json.dumps({"text": line}, ensure_ascii=False) + "\n")
+    out = _write_transcript(base, fmt, transcript_txt, vtt_text)
     return str(out)
+
+
+@mcp.tool
+def youtube_transcribe_auto(url: str, fmt: str = "txt", max_text_bytes: int | None = None) -> dict:
+    """
+    Returns transcript text if small enough; otherwise writes to /data and returns file info.
+    fmt: "txt" | "vtt" | "jsonl"
+    """
+    if not _is_youtube_url(url):
+        raise ValueError("Please provide a valid YouTube video URL (youtube.com/watch?v=... or youtu.be/...).")
+    if fmt not in ("txt", "vtt", "jsonl"):
+        raise ValueError("fmt must be one of: txt, vtt, jsonl")
+
+    if max_text_bytes is None:
+        max_text_bytes = AUTO_TEXT_MAX_BYTES
+    if max_text_bytes < 1:
+        raise ValueError("max_text_bytes must be >= 1")
+
+    res = _run_ytdlp_subs(url)
+    vtt_text = res["vtt_text"]
+    transcript_txt = _vtt_to_text(vtt_text)
+
+    if not transcript_txt:
+        raise RuntimeError(f"Subtitle file was empty after parsing ({res['picked_file']}).")
+
+    text_bytes = len(transcript_txt.encode("utf-8"))
+    if text_bytes <= max_text_bytes:
+        return {"kind": "text", "text": transcript_txt, "bytes": text_bytes}
+
+    base = _make_output_base(url)
+    out = _write_transcript(base, fmt, transcript_txt, vtt_text)
+    return {"kind": "file", "path": str(out), "bytes": text_bytes, "fmt": fmt}
+
+
+@mcp.tool
+def read_file_info(path: str) -> dict:
+    """
+    Returns file size and normalized path.
+    """
+    p = Path(path)
+    if not p.is_absolute():
+        p = (DATA_DIR / p).resolve()
+
+    if not p.exists():
+        raise ValueError(f"File does not exist: {p}")
+
+    return {"path": str(p), "size": p.stat().st_size}
 
 
 @mcp.tool

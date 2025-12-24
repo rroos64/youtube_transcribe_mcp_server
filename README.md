@@ -7,9 +7,11 @@ A lightweight FastMCP server that uses `yt-dlp` to fetch YouTube subtitles, clea
 - Validates YouTube URLs (`youtube.com/watch?v=...` or `youtu.be/...`).
 - Uses `yt-dlp` to download auto-generated subtitles in VTT format (English by default).
 - Cleans and de-duplicates subtitle lines into a readable transcript.
-- Exposes three MCP tools:
+- Exposes five MCP tools:
   - `youtube_transcribe` returns transcript text directly.
   - `youtube_transcribe_to_file` saves transcript to disk and returns the file path.
+  - `youtube_transcribe_auto` returns text if it is below a size threshold, otherwise returns a file path.
+  - `read_file_info` returns file size and normalized path.
   - `read_file_chunk` pages large transcripts from disk.
 
 ## High-level architecture
@@ -77,6 +79,17 @@ The server normalizes WebVTT into a clean transcript by:
   - `txt` (default): cleaned transcript text
   - `vtt`: raw VTT output from `yt-dlp`
   - `jsonl`: one JSON object per line: `{ "text": "..." }`
+
+### `youtube_transcribe_auto(url: str, fmt: str = "txt", max_text_bytes: int | None = None) -> dict`
+
+- Returns text when the transcript size in UTF-8 bytes is below the threshold.
+- Otherwise writes a file under `DATA_DIR` and returns `{ kind: "file", path, bytes, fmt }`.
+- `max_text_bytes` defaults to `AUTO_TEXT_MAX_BYTES` when not provided.
+
+### `read_file_info(path: str) -> dict`
+
+- Returns `{ path, size }` for a saved transcript file.
+- Accepts absolute paths or relative paths (relative paths are resolved under `DATA_DIR`).
 
 ### `read_file_chunk(path: str, offset: int = 0, max_bytes: int = 200000) -> dict`
 
@@ -160,6 +173,85 @@ Response:
 }
 ```
 
+### `youtube_transcribe_auto`
+
+Request:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 5,
+  "method": "tools/call",
+  "params": {
+    "name": "youtube_transcribe_auto",
+    "arguments": {
+      "url": "https://youtu.be/dQw4w9WgXcQ",
+      "fmt": "txt",
+      "max_text_bytes": 150000
+    }
+  }
+}
+```
+
+Response (text):
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 5,
+  "result": {
+    "content": [
+      {
+        "type": "json",
+        "json": {
+          "kind": "text",
+          "text": "Line 1\nLine 2\nLine 3",
+          "bytes": 12345
+        }
+      }
+    ]
+  }
+}
+```
+
+### `read_file_info`
+
+Request:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "method": "tools/call",
+  "params": {
+    "name": "read_file_info",
+    "arguments": {
+      "path": "/data/youtube_a1b2c3d4e5_20240101T120000Z.txt"
+    }
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "result": {
+    "content": [
+      {
+        "type": "json",
+        "json": {
+          "path": "/data/youtube_a1b2c3d4e5_20240101T120000Z.txt",
+          "size": 120345
+        }
+      }
+    ]
+  }
+}
+```
+
 ### `read_file_chunk`
 
 Request:
@@ -224,6 +316,7 @@ Environment variables:
 - `YTDLP_REMOTE_EJS` (default `ejs:github`): yt-dlp remote components selector.
 - `YTDLP_SUB_LANG` (default `en.*`): subtitle language pattern.
 - `YTDLP_TIMEOUT_SEC` (default `180`): yt-dlp subprocess timeout.
+- `AUTO_TEXT_MAX_BYTES` (default `200000`): threshold for `youtube_transcribe_auto` text responses.
 
 ## Agent configuration examples
 
@@ -368,6 +461,7 @@ sequenceDiagram
 - The server is stateless over HTTP, but outputs are persisted to `DATA_DIR`.
 - Subtitle language defaults to English (`en.*`). Adjust with `YTDLP_SUB_LANG`.
 - The server prefers `.en.vtt` outputs when multiple subtitle files exist.
+- `youtube_transcribe_auto` chooses text vs file output based on UTF-8 byte size, returning `kind: "text"` or `kind: "file"`.
 - `read_file_chunk` decodes bytes using UTF-8 with replacement for invalid sequences.
 
 ## Repository layout
