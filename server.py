@@ -15,8 +15,9 @@ mcp = FastMCP(
     "yt-dlp-transcriber",
     instructions=(
         "Fetches YouTube subtitles via yt-dlp and returns cleaned transcripts. "
-        "Use youtube_transcribe_auto to choose text vs file output, or youtube_transcribe_to_file "
-        "for large outputs and read_file_chunk/read_file_info to page."
+        "Use youtube_get_duration for metadata, youtube_transcribe_auto to choose text vs file "
+        "output, or youtube_transcribe_to_file for large outputs and read_file_chunk/read_file_info "
+        "to page."
     ),
     stateless_http=True,
 )
@@ -111,6 +112,51 @@ def _vtt_to_text(vtt: str) -> str:
     lines = _vtt_to_lines(vtt)
     lines = _dedupe_lines(lines, window=6)
     return "\n".join(lines).strip()
+
+
+def _run_ytdlp_info(url: str) -> dict:
+    """
+    Runs yt-dlp to fetch metadata only (no download).
+    Returns a parsed JSON dict.
+    """
+    cmd = [
+        YTDLP_BIN,
+        "--remote-components",
+        REMOTE_EJS,
+        "--extractor-args",
+        f"youtube:player_client={PLAYER_CLIENT}",
+        "--skip-download",
+        "--no-progress",
+        "--no-playlist",
+        "--dump-json",
+        url,
+    ]
+
+    proc = subprocess.run(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=TIMEOUT_SEC,
+    )
+
+    if proc.returncode != 0:
+        raise RuntimeError(f"yt-dlp metadata failed (code {proc.returncode}). Output:\n{proc.stdout}")
+
+    lines = [line for line in proc.stdout.splitlines() if line.strip()]
+    json_line = None
+    for line in reversed(lines):
+        if line.lstrip().startswith("{") and line.rstrip().endswith("}"):
+            json_line = line
+            break
+
+    if json_line is None:
+        raise RuntimeError(f"yt-dlp metadata output missing JSON. Output:\n{proc.stdout}")
+
+    try:
+        return json.loads(json_line)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"Failed to parse yt-dlp metadata JSON: {exc}") from exc
 
 
 def _run_ytdlp_subs(url: str) -> Dict[str, str]:
@@ -225,6 +271,23 @@ def youtube_transcribe_to_file(url: str, fmt: str = "txt") -> str:
 
 
 @mcp.tool
+def youtube_get_duration(url: str) -> dict:
+    """
+    Returns video duration metadata.
+    """
+    if not _is_youtube_url(url):
+        raise ValueError("Please provide a valid YouTube video URL (youtube.com/watch?v=... or youtu.be/...).")
+
+    info = _run_ytdlp_info(url)
+    return {
+        "duration": info.get("duration"),
+        "duration_string": info.get("duration_string"),
+        "title": info.get("title"),
+        "is_live": info.get("is_live"),
+    }
+
+
+@mcp.tool
 def youtube_transcribe_auto(url: str, fmt: str = "txt", max_text_bytes: int | None = None) -> dict:
     """
     Returns transcript text if small enough; otherwise writes to /data and returns file info.
@@ -240,6 +303,12 @@ def youtube_transcribe_auto(url: str, fmt: str = "txt", max_text_bytes: int | No
     if max_text_bytes < 1:
         raise ValueError("max_text_bytes must be >= 1")
 
+    info = _run_ytdlp_info(url)
+    duration = info.get("duration")
+    duration_string = info.get("duration_string")
+    title = info.get("title")
+    is_live = info.get("is_live")
+
     res = _run_ytdlp_subs(url)
     vtt_text = res["vtt_text"]
     transcript_txt = _vtt_to_text(vtt_text)
@@ -249,11 +318,28 @@ def youtube_transcribe_auto(url: str, fmt: str = "txt", max_text_bytes: int | No
 
     text_bytes = len(transcript_txt.encode("utf-8"))
     if text_bytes <= max_text_bytes:
-        return {"kind": "text", "text": transcript_txt, "bytes": text_bytes}
+        return {
+            "kind": "text",
+            "text": transcript_txt,
+            "bytes": text_bytes,
+            "duration": duration,
+            "duration_string": duration_string,
+            "title": title,
+            "is_live": is_live,
+        }
 
     base = _make_output_base(url)
     out = _write_transcript(base, fmt, transcript_txt, vtt_text)
-    return {"kind": "file", "path": str(out), "bytes": text_bytes, "fmt": fmt}
+    return {
+        "kind": "file",
+        "path": str(out),
+        "bytes": text_bytes,
+        "fmt": fmt,
+        "duration": duration,
+        "duration_string": duration_string,
+        "title": title,
+        "is_live": is_live,
+    }
 
 
 @mcp.tool

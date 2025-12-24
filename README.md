@@ -7,9 +7,10 @@ A lightweight FastMCP server that uses `yt-dlp` to fetch YouTube subtitles, clea
 - Validates YouTube URLs (`youtube.com/watch?v=...` or `youtu.be/...`).
 - Uses `yt-dlp` to download auto-generated subtitles in VTT format (English by default).
 - Cleans and de-duplicates subtitle lines into a readable transcript.
-- Exposes five MCP tools:
+- Exposes six MCP tools:
   - `youtube_transcribe` returns transcript text directly.
   - `youtube_transcribe_to_file` saves transcript to disk and returns the file path.
+  - `youtube_get_duration` returns duration metadata up front.
   - `youtube_transcribe_auto` returns text if it is below a size threshold, otherwise returns a file path.
   - `read_file_info` returns file size and normalized path.
   - `read_file_chunk` pages large transcripts from disk.
@@ -80,10 +81,17 @@ The server normalizes WebVTT into a clean transcript by:
   - `vtt`: raw VTT output from `yt-dlp`
   - `jsonl`: one JSON object per line: `{ "text": "..." }`
 
+### `youtube_get_duration(url: str) -> dict`
+
+- Returns `{ duration, duration_string, title, is_live }`.
+- Useful for choosing a strategy before downloading subtitles.
+- `duration` can be `null` for live streams.
+
 ### `youtube_transcribe_auto(url: str, fmt: str = "txt", max_text_bytes: int | None = None) -> dict`
 
 - Returns text when the transcript size in UTF-8 bytes is below the threshold.
 - Otherwise writes a file under `DATA_DIR` and returns `{ kind: "file", path, bytes, fmt }`.
+- Includes `{ duration, duration_string, title, is_live }` from metadata.
 - `max_text_bytes` defaults to `AUTO_TEXT_MAX_BYTES` when not provided.
 
 ### `read_file_info(path: str) -> dict`
@@ -173,6 +181,46 @@ Response:
 }
 ```
 
+### `youtube_get_duration`
+
+Request:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "method": "tools/call",
+  "params": {
+    "name": "youtube_get_duration",
+    "arguments": {
+      "url": "https://youtu.be/dQw4w9WgXcQ"
+    }
+  }
+}
+```
+
+Response:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "content": [
+      {
+        "type": "json",
+        "json": {
+          "duration": 213,
+          "duration_string": "00:03:33",
+          "title": "Example Title",
+          "is_live": false
+        }
+      }
+    ]
+  }
+}
+```
+
 ### `youtube_transcribe_auto`
 
 Request:
@@ -180,7 +228,7 @@ Request:
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 5,
+  "id": 4,
   "method": "tools/call",
   "params": {
     "name": "youtube_transcribe_auto",
@@ -198,7 +246,7 @@ Response (text):
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 5,
+  "id": 4,
   "result": {
     "content": [
       {
@@ -206,7 +254,11 @@ Response (text):
         "json": {
           "kind": "text",
           "text": "Line 1\nLine 2\nLine 3",
-          "bytes": 12345
+          "bytes": 12345,
+          "duration": 213,
+          "duration_string": "00:03:33",
+          "title": "Example Title",
+          "is_live": false
         }
       }
     ]
@@ -221,7 +273,7 @@ Request:
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 4,
+  "id": 5,
   "method": "tools/call",
   "params": {
     "name": "read_file_info",
@@ -237,7 +289,7 @@ Response:
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 4,
+  "id": 5,
   "result": {
     "content": [
       {
@@ -259,7 +311,7 @@ Request:
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 3,
+  "id": 6,
   "method": "tools/call",
   "params": {
     "name": "read_file_chunk",
@@ -277,7 +329,7 @@ Response:
 ```json
 {
   "jsonrpc": "2.0",
-  "id": 3,
+  "id": 6,
   "result": {
     "content": [
       {
@@ -462,6 +514,7 @@ sequenceDiagram
 - Subtitle language defaults to English (`en.*`). Adjust with `YTDLP_SUB_LANG`.
 - The server prefers `.en.vtt` outputs when multiple subtitle files exist.
 - `youtube_transcribe_auto` chooses text vs file output based on UTF-8 byte size, returning `kind: "text"` or `kind: "file"`.
+- `youtube_transcribe_auto` performs a metadata call (`youtube_get_duration`) before downloading subtitles.
 - `read_file_chunk` decodes bytes using UTF-8 with replacement for invalid sequences.
 
 ## Repository layout
