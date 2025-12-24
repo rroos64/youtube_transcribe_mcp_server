@@ -20,7 +20,7 @@ mcp = FastMCP(
         "Use youtube_get_duration for metadata, youtube_transcribe_auto to choose text vs file "
         "output, or youtube_transcribe_to_file for file output and read_file_chunk/read_file_info "
         "to page. Storage is session-scoped under /data/<session_id>. Resources are available at "
-        "transcripts://session/* and templates at template://transcript/*."
+        "transcripts://session/{session_id}/* and templates at template://transcript/*."
     ),
 )
 
@@ -37,7 +37,6 @@ MAX_SESSION_ITEMS = int(os.environ.get("MAX_SESSION_ITEMS", "0"))
 MAX_SESSION_BYTES = int(os.environ.get("MAX_SESSION_BYTES", "0"))
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
-DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 _YT_URL_RE = re.compile(r"^https?://(www\.)?youtube\.com/watch\?v=|^https?://youtu\.be/")
 _SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")

@@ -4,7 +4,7 @@ DATA_DIR ?= ./data
 PORT ?= 8080
 IMAGE ?= yt-dlp-transcriber:local
 
-.PHONY: venv install run docker-build docker-run clean
+.PHONY: venv install run test docker-build docker-run clean
 
 venv:
 	$(PYTHON) -m venv $(VENV)
@@ -14,7 +14,11 @@ install: venv
 
 run: install
 	mkdir -p $(DATA_DIR)
-	DATA_DIR=$(DATA_DIR) PORT=$(PORT) $(VENV)/bin/python server.py
+	DATA_DIR=$(DATA_DIR) PORT=$(PORT) PYTHONPATH=src $(VENV)/bin/python -m yt_dlp_transcriber.server
+
+test: install
+	$(VENV)/bin/pip install -r requirements-dev.txt
+	PYTHONPATH=src $(VENV)/bin/pytest
 
 docker-build:
 	docker build -t $(IMAGE) .

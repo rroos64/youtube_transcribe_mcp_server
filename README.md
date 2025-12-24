@@ -610,7 +610,7 @@ pip install -r requirements.txt
 export PORT=8080
 export DATA_DIR=/tmp/yt-transcripts
 mkdir -p "$DATA_DIR"
-python server.py
+PYTHONPATH=src python -m yt_dlp_transcriber.server
 ```
 
 The MCP HTTP endpoint listens at:
@@ -628,6 +628,7 @@ If you prefer a repeatable local workflow, use the included `Makefile`:
 ```bash
 make install
 make run
+make test
 ```
 
 Optional overrides:
@@ -636,6 +637,15 @@ Optional overrides:
 make run PORT=9090 DATA_DIR=./data
 make docker-build IMAGE=yt-dlp-transcriber:local
 make docker-run PORT=8080 DATA_DIR=./data IMAGE=yt-dlp-transcriber:local
+```
+
+## Testing
+
+Install dev dependencies and run tests:
+
+```bash
+pip install -r requirements-dev.txt
+PYTHONPATH=src pytest
 ```
 
 ## Docker usage
@@ -703,7 +713,10 @@ sequenceDiagram
 
 ## Repository layout
 
-- `server.py`: FastMCP server implementation and subtitle processing.
-- `requirements.txt`: Python dependency list.
+- `src/yt_dlp_transcriber/server.py`: FastMCP server implementation and subtitle processing.
+- `src/yt_dlp_transcriber/__init__.py`: package marker.
+- `tests`: unit tests for manifest, retention, and resources.
+- `requirements.txt`: runtime dependencies.
+- `requirements-dev.txt`: test dependencies.
 - `Dockerfile`: container build for running the server.
-- `Makefile`: local dev and Docker shortcuts.
+- `Makefile`: local dev, test, and Docker shortcuts.

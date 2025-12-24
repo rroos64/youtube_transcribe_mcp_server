@@ -12,11 +12,11 @@ WORKDIR /app
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-COPY server.py /app/server.py
+COPY src /app/src
 
 ENV PORT=8080
 ENV DATA_DIR=/data
+ENV PYTHONPATH=/app/src
 EXPOSE 8080
 
-CMD ["python", "/app/server.py"]
-
+CMD ["python", "-m", "yt_dlp_transcriber.server"]
