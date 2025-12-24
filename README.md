@@ -9,47 +9,48 @@ A lightweight FastMCP server that uses `yt-dlp` to fetch YouTube subtitles, clea
 - Cleans and de-duplicates subtitle lines into a readable transcript.
 - Exposes six MCP tools:
   - `youtube_transcribe` returns transcript text directly.
-  - `youtube_transcribe_to_file` saves transcript to disk and returns the file path.
+  - `youtube_transcribe_to_file` saves transcript under `/data/<session_id>` and returns a handle object.
   - `youtube_get_duration` returns duration metadata up front.
-  - `youtube_transcribe_auto` returns text if it is below a size threshold, otherwise returns a file path.
-  - `read_file_info` returns file size and normalized path.
-  - `read_file_chunk` pages large transcripts from disk.
+  - `youtube_transcribe_auto` returns text if it is below a size threshold, otherwise returns a handle object.
+  - `read_file_info` returns file size and normalized path (by handle or path).
+  - `read_file_chunk` pages large transcripts from disk (by handle or path).
 
 ## High-level architecture
 
 ```mermaid
 flowchart LR
-  Client[MCP Client]
-  Server[FastMCP Server\nserver.py]
-  YTDLP[yt-dlp]
-  YT[YouTube]
-  Data[(DATA_DIR /data)]
+  Client["MCP Client"]
+  Server["FastMCP Server"]
+  YTDLP["yt-dlp"]
+  YT["YouTube"]
+  Data["DATA_DIR data session_id"]
 
-  Client -->|MCP HTTP /mcp| Server
+  Client -->|MCP HTTP| Server
   Server -->|spawn process| YTDLP
   YTDLP -->|HTTP requests| YT
   YTDLP -->|VTT file| Server
   Server -->|write transcript| Data
-  Server -->|transcript text or file path| Client
+  Server -->|transcript text or handle| Client
 ```
 
 ## Detailed data flow
 
 ```mermaid
 flowchart TD
-  A[Client calls youtube_transcribe or youtube_transcribe_to_file] --> B[Validate URL format]
+  A["Client calls youtube_transcribe or youtube_transcribe_to_file with session_id"] --> B["Validate URL format"]
   B -->|valid| C[Run yt-dlp with subtitle args]
   C --> D[Pick .en.vtt if present, else any .vtt]
-  D --> E[Parse VTT to lines]
-  E --> F[De-duplicate lines]
-  F --> G[Join lines to transcript]
-  G -->|return text| H[youtube_transcribe]
-  G -->|write file| I[youtube_transcribe_to_file]
-  I --> J[Return /data/... path]
+  D --> E["Parse VTT to lines"]
+  E --> F["De-duplicate lines"]
+  F --> G["Join lines to transcript"]
+  G -->|return text| H["youtube_transcribe"]
+  G -->|write file| I["youtube_transcribe_to_file"]
+  I --> J["Write under data session_id"]
+  J --> K["Return handle object"]
 
-  B -->|invalid| X[Raise ValueError]
-  C -->|non-zero exit| Y[Raise RuntimeError]
-  D -->|no files| Z[Raise RuntimeError]
+  B -->|invalid| X["Raise ValueError"]
+  C -->|non-zero exit| Y["Raise RuntimeError"]
+  D -->|no files| Z["Raise RuntimeError"]
 ```
 
 ## VTT cleaning and de-duplication logic
@@ -73,13 +74,14 @@ The server normalizes WebVTT into a clean transcript by:
 - Intended for small to medium transcripts that fit in a single response.
 - Raises errors on invalid URLs, failed `yt-dlp`, missing subtitles, or empty output after parsing.
 
-### `youtube_transcribe_to_file(url: str, fmt: str = "txt") -> str`
+### `youtube_transcribe_to_file(url: str, session_id: str, fmt: str = "txt") -> dict`
 
-- Saves transcript to disk under `DATA_DIR` and returns the file path.
+- Saves transcript under `/data/<session_id>` and returns a handle object.
 - `fmt` options:
   - `txt` (default): cleaned transcript text
   - `vtt`: raw VTT output from `yt-dlp`
   - `jsonl`: one JSON object per line: `{ "text": "..." }`
+- Handle object fields: `{ handle, session_id, relpath, expires_at, persisted, fmt }`.
 
 ### `youtube_get_duration(url: str) -> dict`
 
@@ -87,24 +89,30 @@ The server normalizes WebVTT into a clean transcript by:
 - Useful for choosing a strategy before downloading subtitles.
 - `duration` can be `null` for live streams.
 
-### `youtube_transcribe_auto(url: str, fmt: str = "txt", max_text_bytes: int | None = None) -> dict`
+### `youtube_transcribe_auto(url: str, fmt: str = "txt", max_text_bytes: int | None = None, session_id: str | None = None) -> dict`
 
 - Returns text when the transcript size in UTF-8 bytes is below the threshold.
-- Otherwise writes a file under `DATA_DIR` and returns `{ kind: "file", path, bytes, fmt }`.
+- Otherwise writes a file under `/data/<session_id>` and returns a handle object.
 - Includes `{ duration, duration_string, title, is_live }` from metadata.
 - `max_text_bytes` defaults to `AUTO_TEXT_MAX_BYTES` when not provided.
+- `session_id` is required when the output would be a file.
+- File responses include `{ handle, session_id, relpath, expires_at, persisted, fmt }`.
 
-### `read_file_info(path: str) -> dict`
+### `read_file_info(path: str | None = None, handle: str | None = None, session_id: str | None = None) -> dict`
 
-- Returns `{ path, size }` for a saved transcript file.
-- Accepts absolute paths or relative paths (relative paths are resolved under `DATA_DIR`).
+Returns file metadata for a saved transcript.
 
-### `read_file_chunk(path: str, offset: int = 0, max_bytes: int = 200000) -> dict`
+- Provide either `(handle, session_id)` or `path`.
+- When using `handle`, returns `{ handle, session_id, path, relpath, size, expires_at?, persisted }`.
+- When using `path`, returns `{ path, size }` (paths must resolve under `DATA_DIR`).
 
-- Reads a byte range from a saved file and returns:
-  - `data` (decoded text), `next_offset`, `eof`, `size`, `path`
-- Accepts absolute paths or relative paths (relative paths are resolved under `DATA_DIR`).
-- `max_bytes` is clamped to `1..200000`.
+### `read_file_chunk(path: str | None = None, offset: int = 0, max_bytes: int = 200000, handle: str | None = None, session_id: str | None = None) -> dict`
+
+Reads a byte range from a saved file.
+
+- Provide either `(handle, session_id)` or `path`.
+- Returns `data` (decoded text), `next_offset`, `eof`, `size`, `path`.
+- Paths must resolve under `DATA_DIR`, and `max_bytes` is clamped to `1..200000`.
 
 ## MCP request/response examples
 
@@ -158,6 +166,7 @@ Request:
     "name": "youtube_transcribe_to_file",
     "arguments": {
       "url": "https://youtu.be/dQw4w9WgXcQ",
+      "session_id": "sess_123",
       "fmt": "jsonl"
     }
   }
@@ -173,8 +182,15 @@ Response:
   "result": {
     "content": [
       {
-        "type": "text",
-        "text": "/data/youtube_a1b2c3d4e5_20240101T120000Z.jsonl"
+        "type": "json",
+        "json": {
+          "handle": "tr_58aafd83e6f14c6e8c2f1c5f21d9a2a1",
+          "session_id": "sess_123",
+          "relpath": "sess_123/youtube_a1b2c3d4e5_20240101T120000Z.jsonl",
+          "expires_at": "2025-01-01T12:00:00Z",
+          "persisted": false,
+          "fmt": "jsonl"
+        }
       }
     ]
   }
@@ -235,7 +251,8 @@ Request:
     "arguments": {
       "url": "https://youtu.be/dQw4w9WgXcQ",
       "fmt": "txt",
-      "max_text_bytes": 150000
+      "max_text_bytes": 150000,
+      "session_id": "sess_123"
     }
   }
 }
@@ -266,6 +283,36 @@ Response (text):
 }
 ```
 
+Response (file):
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 4,
+  "result": {
+    "content": [
+      {
+        "type": "json",
+        "json": {
+          "kind": "file",
+          "handle": "tr_58aafd83e6f14c6e8c2f1c5f21d9a2a1",
+          "session_id": "sess_123",
+          "relpath": "sess_123/youtube_a1b2c3d4e5_20240101T120000Z.txt",
+          "expires_at": "2025-01-01T12:00:00Z",
+          "persisted": false,
+          "bytes": 987654,
+          "fmt": "txt",
+          "duration": 213,
+          "duration_string": "00:03:33",
+          "title": "Example Title",
+          "is_live": false
+        }
+      }
+    ]
+  }
+}
+```
+
 ### `read_file_info`
 
 Request:
@@ -278,7 +325,8 @@ Request:
   "params": {
     "name": "read_file_info",
     "arguments": {
-      "path": "/data/youtube_a1b2c3d4e5_20240101T120000Z.txt"
+      "handle": "tr_58aafd83e6f14c6e8c2f1c5f21d9a2a1",
+      "session_id": "sess_123"
     }
   }
 }
@@ -295,8 +343,13 @@ Response:
       {
         "type": "json",
         "json": {
-          "path": "/data/youtube_a1b2c3d4e5_20240101T120000Z.txt",
-          "size": 120345
+          "handle": "tr_58aafd83e6f14c6e8c2f1c5f21d9a2a1",
+          "session_id": "sess_123",
+          "path": "/data/sess_123/youtube_a1b2c3d4e5_20240101T120000Z.txt",
+          "relpath": "sess_123/youtube_a1b2c3d4e5_20240101T120000Z.txt",
+          "size": 120345,
+          "expires_at": "2025-01-01T12:00:00Z",
+          "persisted": false
         }
       }
     ]
@@ -316,7 +369,8 @@ Request:
   "params": {
     "name": "read_file_chunk",
     "arguments": {
-      "path": "/data/youtube_a1b2c3d4e5_20240101T120000Z.txt",
+      "handle": "tr_58aafd83e6f14c6e8c2f1c5f21d9a2a1",
+      "session_id": "sess_123",
       "offset": 0,
       "max_bytes": 200000
     }
@@ -339,7 +393,7 @@ Response:
           "next_offset": 200000,
           "eof": false,
           "size": 120345,
-          "path": "/data/youtube_a1b2c3d4e5_20240101T120000Z.txt"
+          "path": "/data/sess_123/youtube_a1b2c3d4e5_20240101T120000Z.txt"
         }
       }
     ]
@@ -355,7 +409,20 @@ Files written by `youtube_transcribe_to_file` use:
 youtube_{sha1(url)[:10]}_{utc_timestamp}.{ext}
 ```
 
-Example: `youtube_a1b2c3d4e5_20240101T120000Z.txt`
+Example: `/data/sess_123/youtube_a1b2c3d4e5_20240101T120000Z.txt`
+
+Each handle is tracked in a sidecar metadata file:
+
+```
+/data/<session_id>/.meta/<handle>.json
+```
+
+## Retention and expiry
+
+- By default, file outputs expire after `DEFAULT_TTL_SEC` (1 hour).
+- Expired files are cleaned up when the session is accessed (transcribe or read).
+- The `expires_at` timestamp is included in handle responses and `read_file_info`.
+- There is no persistence API yet; `persisted` remains `false`.
 
 ## Configuration
 
@@ -369,6 +436,7 @@ Environment variables:
 - `YTDLP_SUB_LANG` (default `en.*`): subtitle language pattern.
 - `YTDLP_TIMEOUT_SEC` (default `180`): yt-dlp subprocess timeout.
 - `AUTO_TEXT_MAX_BYTES` (default `200000`): threshold for `youtube_transcribe_auto` text responses.
+- `DEFAULT_TTL_SEC` (default `3600`): file expiry for handle-based outputs.
 
 ## Agent configuration examples
 
@@ -486,16 +554,16 @@ sequenceDiagram
   participant Y as yt-dlp
   participant FS as DATA_DIR
 
-  C->>S: youtube_transcribe_to_file(url, fmt="txt")
+  C->>S: youtube_transcribe_to_file(url, session_id, fmt="txt")
   S->>S: Validate URL
   S->>Y: Run yt-dlp (auto-subs)
   Y-->>S: VTT file
   S->>S: Clean and de-duplicate
-  S->>FS: Write transcript file
-  S-->>C: /data/youtube_...txt
+  S->>FS: Write transcript file under data session_id
+  S-->>C: handle, relpath, expires_at
 
   loop Read chunks
-    C->>S: read_file_chunk(path, offset, max_bytes)
+    C->>S: read_file_chunk(handle, session_id, offset, max_bytes)
     S->>FS: Read bytes
     S-->>C: { data, next_offset, eof }
   end
@@ -510,11 +578,12 @@ sequenceDiagram
 
 ## Notes and behavior details
 
-- The server is stateless over HTTP, but outputs are persisted to `DATA_DIR`.
+- The server is stateless over HTTP, and file outputs are scoped to `/data/<session_id>` with TTL-based expiry.
 - Subtitle language defaults to English (`en.*`). Adjust with `YTDLP_SUB_LANG`.
 - The server prefers `.en.vtt` outputs when multiple subtitle files exist.
 - `youtube_transcribe_auto` chooses text vs file output based on UTF-8 byte size, returning `kind: "text"` or `kind: "file"`.
 - `youtube_transcribe_auto` performs a metadata call (`youtube_get_duration`) before downloading subtitles.
+- `session_id` must be 1-64 characters of letters, numbers, `-`, or `_`.
 - `read_file_chunk` decodes bytes using UTF-8 with replacement for invalid sequences.
 
 ## Repository layout
