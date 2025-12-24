@@ -35,6 +35,7 @@ DEFAULT_TTL_SEC = int(os.environ.get("TRANSCRIPT_TTL_SECONDS", os.environ.get("D
 INLINE_TEXT_MAX_BYTES = int(os.environ.get("INLINE_TEXT_MAX_BYTES", "20000"))
 MAX_SESSION_ITEMS = int(os.environ.get("MAX_SESSION_ITEMS", "0"))
 MAX_SESSION_BYTES = int(os.environ.get("MAX_SESSION_BYTES", "0"))
+DEFAULT_SESSION_ID = os.environ.get("DEFAULT_SESSION_ID", "")
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 
@@ -93,6 +94,8 @@ def _get_session_id(session_id: str | None = None, ctx: Any | None = None) -> st
         return _validate_session_id(session_id)
     if ctx_id:
         return _validate_session_id(ctx_id)
+    if DEFAULT_SESSION_ID:
+        return _validate_session_id(DEFAULT_SESSION_ID)
     raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
 

@@ -83,3 +83,8 @@ def test_get_session_id_header_mismatch(server_module):
         assert "does not match" in str(exc)
     else:
         raise AssertionError("Expected mismatch error")
+
+
+def test_default_session_id_fallback(server_module, monkeypatch):
+    monkeypatch.setattr(server_module, "DEFAULT_SESSION_ID", "sess_default")
+    assert server_module._get_session_id() == "sess_default"

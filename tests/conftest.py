@@ -18,6 +18,7 @@ def server_module(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "DEFAULT_TTL_SEC", 3600)
     monkeypatch.setattr(server, "MAX_SESSION_ITEMS", 0)
     monkeypatch.setattr(server, "MAX_SESSION_BYTES", 0)
+    monkeypatch.setattr(server, "DEFAULT_SESSION_ID", "")
     return server
 
 

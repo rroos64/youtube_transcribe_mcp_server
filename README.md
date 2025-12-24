@@ -547,10 +547,11 @@ Environment variables:
 - `INLINE_TEXT_MAX_BYTES` (default `20000`): inline content threshold for `transcripts://session/{session_id}/item/{id}`.
 - `MAX_SESSION_ITEMS` (default `0` unlimited): max items per session.
 - `MAX_SESSION_BYTES` (default `0` unlimited): max bytes per session.
+- `DEFAULT_SESSION_ID` (default empty): fallback session id when no `session_id` or `mcp-session-id` is provided.
 
 ## Session identification
 
-The server scopes data by session. Tools and resources use the MCP HTTP header `mcp-session-id` when available. If your client cannot send it, pass `session_id` explicitly to tools that require it. When both are present, they must match.
+The server scopes data by session. Tools and resources use the MCP HTTP header `mcp-session-id` when available. If your client cannot send it, pass `session_id` explicitly to tools that require it. When both are present, they must match. If neither is provided, the server can fall back to `DEFAULT_SESSION_ID`.
 
 ## Agent configuration examples
 
