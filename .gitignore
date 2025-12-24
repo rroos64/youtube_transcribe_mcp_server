@@ -33,3 +33,7 @@ Thumbs.db
 
 # Local data
 /data/
+
+# Docs (local planning)
+/docs/*
+!/docs/improvements.md
