@@ -220,7 +220,7 @@ def youtube_transcribe_to_file(url: str, fmt: str = "txt") -> str:
 
 
 @mcp.tool
-def read_file_chunk(path: str, offset: int = 0, max_bytes: int = 20000) -> dict:
+def read_file_chunk(path: str, offset: int = 0, max_bytes: int = 200000) -> dict:
     """
     Reads a chunk of a saved transcript file (for clients with output limits).
     Returns: { data, next_offset, eof, size, path }
@@ -233,17 +233,31 @@ def read_file_chunk(path: str, offset: int = 0, max_bytes: int = 20000) -> dict:
         raise ValueError(f"File does not exist: {p}")
     if max_bytes < 1 or max_bytes > 200000:
         raise ValueError("max_bytes must be between 1 and 200000")
+    if offset < 0:
+        raise ValueError("offset must be >= 0")
 
-    b = p.read_bytes()
-    chunk = b[offset : offset + max_bytes]
+    size = p.stat().st_size
+    if offset >= size:
+        return {
+            "data": "",
+            "next_offset": offset,
+            "eof": True,
+            "size": size,
+            "path": str(p),
+        }
+
+    with p.open("rb") as f:
+        f.seek(offset)
+        chunk = f.read(max_bytes)
+
     next_offset = offset + len(chunk)
-    eof = next_offset >= len(b)
+    eof = next_offset >= size
 
     return {
         "data": chunk.decode("utf-8", errors="replace"),
         "next_offset": next_offset,
         "eof": eof,
-        "size": len(b),
+        "size": size,
         "path": str(p),
     }
 

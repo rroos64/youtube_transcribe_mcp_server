@@ -78,7 +78,7 @@ The server normalizes WebVTT into a clean transcript by:
   - `vtt`: raw VTT output from `yt-dlp`
   - `jsonl`: one JSON object per line: `{ "text": "..." }`
 
-### `read_file_chunk(path: str, offset: int = 0, max_bytes: int = 20000) -> dict`
+### `read_file_chunk(path: str, offset: int = 0, max_bytes: int = 200000) -> dict`
 
 - Reads a byte range from a saved file and returns:
   - `data` (decoded text), `next_offset`, `eof`, `size`, `path`
@@ -174,7 +174,7 @@ Request:
     "arguments": {
       "path": "/data/youtube_a1b2c3d4e5_20240101T120000Z.txt",
       "offset": 0,
-      "max_bytes": 20000
+      "max_bytes": 200000
     }
   }
 }
@@ -192,7 +192,7 @@ Response:
         "type": "json",
         "json": {
           "data": "First chunk of text...",
-          "next_offset": 20000,
+          "next_offset": 200000,
           "eof": false,
           "size": 120345,
           "path": "/data/youtube_a1b2c3d4e5_20240101T120000Z.txt"
