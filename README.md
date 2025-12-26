@@ -719,6 +719,7 @@ sequenceDiagram
 - `src/yt_dlp_transcriber/mcp/`: FastMCP wiring (tools/resources/templates/deps).
 - `src/yt_dlp_transcriber/services/`: application services for transcription and sessions.
 - `src/yt_dlp_transcriber/adapters/`: filesystem + yt-dlp adapters.
+- `src/yt_dlp_transcriber/ports/`: protocols for repositories and transcribers.
 - `src/yt_dlp_transcriber/domain/`: domain models, enums, and value objects.
 - `src/yt_dlp_transcriber/__init__.py`: package marker.
 - `tests`: unit tests for domain, storage, services, and MCP resources/templates.

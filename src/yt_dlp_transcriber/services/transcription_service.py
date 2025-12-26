@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Mapping, Protocol
 
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
-from yt_dlp_transcriber.adapters.ytdlp_client import YtDlpClient
+from yt_dlp_transcriber.ports.manifest_repo import ManifestRepositoryPort
+from yt_dlp_transcriber.ports.transcriber import TranscriberPort
 from yt_dlp_transcriber.domain.models import ItemKind, ManifestItem, TranscriptFormat
 from yt_dlp_transcriber.domain.types import SessionId
 
@@ -128,10 +128,10 @@ def _build_info(payload: dict) -> VideoInfo:
 class TranscriptionService:
     def __init__(
         self,
-        client: YtDlpClient,
+        client: TranscriberPort,
         parser: TranscriptParser,
         store: SessionStore,
-        repo: ManifestRepository,
+        repo: ManifestRepositoryPort,
         writers: Mapping[TranscriptFormat, TranscriptWriter] | None = None,
     ) -> None:
         self._client = client

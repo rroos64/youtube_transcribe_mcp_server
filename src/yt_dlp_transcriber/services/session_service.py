@@ -5,10 +5,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
 from yt_dlp_transcriber.domain.errors import NotFoundError
 from yt_dlp_transcriber.domain.models import ItemKind, ManifestItem, TranscriptFormat
 from yt_dlp_transcriber.domain.types import ItemId, SessionId
+from yt_dlp_transcriber.ports.manifest_repo import ManifestRepositoryPort
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ def _coerce_item_id(item_id: ItemId | str | None) -> ItemId | None:
 
 
 class SessionService:
-    def __init__(self, store: SessionStore, repo: ManifestRepository) -> None:
+    def __init__(self, store: SessionStore, repo: ManifestRepositoryPort) -> None:
         self._store = store
         self._repo = repo
 
