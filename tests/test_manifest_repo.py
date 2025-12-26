@@ -1,4 +1,5 @@
 from dataclasses import replace
+from datetime import datetime, timedelta
 import os
 
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
@@ -84,3 +85,34 @@ def test_repo_save_uses_atomic_replace(tmp_path, monkeypatch):
     assert str(src).endswith(".tmp")
     assert str(dst).endswith("manifest.json")
     assert (store.manifest_path(session_id)).exists()
+
+
+def test_repo_uses_clock_for_timestamps(tmp_path):
+    class FixedClock:
+        def __init__(self, now):
+            self._now = now
+
+        def now(self):
+            return self._now
+
+    fixed_time = datetime(2024, 1, 1, 12, 0, 0)
+    store = SessionStore(tmp_path)
+    repo = ManifestRepository(store, default_ttl_sec=60, clock=FixedClock(fixed_time))
+    session_id = SessionId("sess_clock")
+
+    target = store.transcripts_dir(session_id) / "sample.txt"
+    target.write_text("hello", encoding="utf-8")
+
+    item = repo.add_item(
+        session_id=session_id,
+        kind=ItemKind.TRANSCRIPT,
+        fmt=TranscriptFormat.TXT,
+        relpath="transcripts/sample.txt",
+        pinned=False,
+        ttl_seconds=60,
+    )
+
+    expected_created = fixed_time.isoformat() + "Z"
+    expected_expires = (fixed_time + timedelta(seconds=60)).isoformat() + "Z"
+    assert item.created_at == expected_created
+    assert item.expires_at == expected_expires

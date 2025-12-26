@@ -129,3 +129,4 @@ Each step starts by updating tests to match the new structure before changing im
 - Optional enhancement (errors): added `src/yt_dlp_transcriber/domain/errors.py`, wired typed errors through ids, services, resources, and yt-dlp adapter, with tests in `tests/test_errors.py` and `tests/test_ytdlp_client.py`.
 - Optional enhancement (caching): added `YTDLP_INFO_CACHE_TTL_SEC` config and in-memory caching in `src/yt_dlp_transcriber/adapters/ytdlp_client.py`, with tests in `tests/test_ytdlp_client.py` and `tests/test_config.py`.
 - Ports: added `src/yt_dlp_transcriber/ports/` protocols and updated services to depend on ports for manifest repositories and transcribers.
+- Clock port: added `src/yt_dlp_transcriber/ports/clock.py` and wired `ManifestRepository` to use an injected clock for timestamps, with tests in `tests/test_manifest_repo.py`.

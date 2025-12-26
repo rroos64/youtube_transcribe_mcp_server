@@ -12,6 +12,7 @@ from typing import Any, Mapping
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
 from yt_dlp_transcriber.domain.models import ItemKind, Manifest, ManifestItem, TranscriptFormat
 from yt_dlp_transcriber.domain.types import ItemId, SessionId
+from yt_dlp_transcriber.ports.clock import ClockPort, SystemClock
 
 
 def _coerce_session_id(session_id: SessionId | str) -> SessionId:
@@ -20,15 +21,11 @@ def _coerce_session_id(session_id: SessionId | str) -> SessionId:
     return SessionId(str(session_id))
 
 
-def _now_iso(now: datetime | None = None) -> str:
-    if now is None:
-        now = datetime.utcnow()
+def _now_iso(now: datetime) -> str:
     return now.replace(microsecond=0).isoformat() + "Z"
 
 
-def _expires_at(ttl_seconds: int, now: datetime | None = None) -> str:
-    if now is None:
-        now = datetime.utcnow()
+def _expires_at(ttl_seconds: int, now: datetime) -> str:
     return (now + timedelta(seconds=ttl_seconds)).replace(microsecond=0).isoformat() + "Z"
 
 
@@ -56,12 +53,14 @@ class ManifestRepository:
         max_session_items: int = 0,
         max_session_bytes: int = 0,
         use_lock: bool = False,
+        clock: ClockPort | None = None,
     ) -> None:
         self._store = store
         self._default_ttl_sec = default_ttl_sec
         self._max_session_items = max_session_items
         self._max_session_bytes = max_session_bytes
         self._use_lock = use_lock
+        self._clock = clock or SystemClock()
 
     @property
     def default_ttl_sec(self) -> int:
@@ -82,7 +81,7 @@ class ManifestRepository:
         if not isinstance(data, dict):
             data = {}
 
-        created_at = str(data.get("created_at") or _now_iso())
+        created_at = str(data.get("created_at") or _now_iso(self._clock.now()))
         raw_items = data.get("items", [])
         items: list[ManifestItem] = []
         if isinstance(raw_items, list):
@@ -122,8 +121,9 @@ class ManifestRepository:
         sid = _coerce_session_id(session_id)
         manifest = self.load(sid)
         item_id = ItemId(f"tr_{uuid.uuid4().hex}")
-        created_at = _now_iso()
-        expires_at = None if pinned else _expires_at(ttl_seconds)
+        now = self._clock.now()
+        created_at = _now_iso(now)
+        expires_at = None if pinned else _expires_at(ttl_seconds, now=now)
         target = self._store.resolve_relpath(sid, relpath)
         size = target.stat().st_size
 
@@ -171,7 +171,7 @@ class ManifestRepository:
         kept: list[ManifestItem] = []
         removed = 0
         changed = False
-        now = datetime.utcnow()
+        now = self._clock.now()
 
         for item in manifest.items:
             if not item.relpath:
