@@ -115,3 +115,4 @@ Each step starts by updating tests to match the new structure before changing im
 
 ## Refactor Progress
 - Step 1 (Config object): added `src/yt_dlp_transcriber/config.py` with `AppConfig`, updated `src/yt_dlp_transcriber/server.py` to use `APP_CONFIG`, and added `tests/test_config.py` with minimal fixture updates.
+- Step 2 (Domain models): added `src/yt_dlp_transcriber/domain/models.py` + `src/yt_dlp_transcriber/domain/types.py` with enums/value objects/dataclasses, plus `tests/test_domain_models.py`.
