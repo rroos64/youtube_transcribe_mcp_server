@@ -642,11 +642,11 @@ make docker-run PORT=8080 DATA_DIR=./data IMAGE=yt-dlp-transcriber:local
 
 ## Testing
 
-Install dev dependencies and run tests:
+Install dev dependencies and run tests (pytest.ini sets PYTHONPATH=src):
 
 ```bash
 pip install -r requirements-dev.txt
-PYTHONPATH=src pytest
+pytest
 ```
 
 ## Docker usage
@@ -714,9 +714,13 @@ sequenceDiagram
 
 ## Repository layout
 
-- `src/yt_dlp_transcriber/server.py`: FastMCP server implementation and subtitle processing.
+- `src/yt_dlp_transcriber/server.py`: thin composition root that starts FastMCP.
+- `src/yt_dlp_transcriber/mcp/`: FastMCP wiring (tools/resources/templates/deps).
+- `src/yt_dlp_transcriber/services/`: application services for transcription and sessions.
+- `src/yt_dlp_transcriber/adapters/`: filesystem + yt-dlp adapters.
+- `src/yt_dlp_transcriber/domain/`: domain models, enums, and value objects.
 - `src/yt_dlp_transcriber/__init__.py`: package marker.
-- `tests`: unit tests for manifest, retention, and resources.
+- `tests`: unit tests for domain, storage, services, and MCP resources/templates.
 - `requirements.txt`: runtime dependencies.
 - `requirements-dev.txt`: test dependencies.
 - `Dockerfile`: container build for running the server.

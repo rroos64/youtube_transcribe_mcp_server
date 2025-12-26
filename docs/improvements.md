@@ -124,3 +124,4 @@ Each step starts by updating tests to match the new structure before changing im
 - Tests: added a lightweight `FastMCP` stub fallback in `src/yt_dlp_transcriber/mcp/app.py` so importing MCP modules works without `fastmcp` installed.
 - Tests: added `pytest.ini` with `pythonpath = src` so `pytest` works without manually exporting `PYTHONPATH`.
 - MCP: registered resources/templates via explicit `mcp.resource(...)(func)` calls to keep the exported functions callable even when FastMCP returns template objects.
+- Step 7 (Documentation refresh): updated `README.md` testing instructions and repository layout to match the new module structure.
