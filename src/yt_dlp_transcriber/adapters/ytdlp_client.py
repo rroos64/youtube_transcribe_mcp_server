@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 from yt_dlp_transcriber.config import AppConfig
+from yt_dlp_transcriber.domain.errors import ExternalCommandError
 
 
 @dataclass(frozen=True)
@@ -80,7 +81,9 @@ class YtDlpClient:
         )
 
         if proc.returncode != 0:
-            raise RuntimeError(f"yt-dlp metadata failed (code {proc.returncode}). Output:\n{proc.stdout}")
+            raise ExternalCommandError(
+                f"yt-dlp metadata failed (code {proc.returncode}). Output:\n{proc.stdout}"
+            )
 
         lines = [line for line in proc.stdout.splitlines() if line.strip()]
         json_line = None
@@ -90,12 +93,12 @@ class YtDlpClient:
                 break
 
         if json_line is None:
-            raise RuntimeError(f"yt-dlp metadata output missing JSON. Output:\n{proc.stdout}")
+            raise ExternalCommandError(f"yt-dlp metadata output missing JSON. Output:\n{proc.stdout}")
 
         try:
             return json.loads(json_line)
         except json.JSONDecodeError as exc:
-            raise RuntimeError(f"Failed to parse yt-dlp metadata JSON: {exc}") from exc
+            raise ExternalCommandError(f"Failed to parse yt-dlp metadata JSON: {exc}") from exc
 
     def get_subtitles(self, url: str) -> YtDlpSubtitles:
         with self._temp_dir_factory("yt_transcribe_") as workdir:
@@ -110,13 +113,15 @@ class YtDlpClient:
             )
 
             if proc.returncode != 0:
-                raise RuntimeError(f"yt-dlp failed (code {proc.returncode}). Output:\n{proc.stdout}")
+                raise ExternalCommandError(
+                    f"yt-dlp failed (code {proc.returncode}). Output:\n{proc.stdout}"
+                )
 
             vtts = sorted(workdir.glob("*.en.vtt"))
             if not vtts:
                 vtts = sorted(workdir.glob("*.vtt"))
             if not vtts:
-                raise RuntimeError(f"No subtitle files were produced. yt-dlp output:\n{proc.stdout}")
+                raise ExternalCommandError(f"No subtitle files were produced. yt-dlp output:\n{proc.stdout}")
 
             vtt_path = vtts[-1]
             vtt_text = vtt_path.read_text(encoding="utf-8", errors="replace")

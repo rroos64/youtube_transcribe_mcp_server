@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 from dataclasses import replace
 
+from yt_dlp_transcriber.domain.errors import NotFoundError
 from yt_dlp_transcriber.domain.models import ItemKind
 
 from .app import mcp
@@ -79,7 +80,7 @@ def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None)
             item = entry
             break
     if not item:
-        raise ValueError("Item not found")
+        raise NotFoundError("Item not found")
 
     path = services.store.resolve_relpath(sid, item.relpath)
     size = path.stat().st_size

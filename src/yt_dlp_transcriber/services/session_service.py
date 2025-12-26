@@ -6,6 +6,7 @@ from pathlib import Path
 
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
 from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
+from yt_dlp_transcriber.domain.errors import NotFoundError
 from yt_dlp_transcriber.domain.models import ItemKind, ManifestItem, TranscriptFormat
 from yt_dlp_transcriber.domain.types import ItemId, SessionId
 
@@ -126,7 +127,7 @@ class SessionService:
             updated_items.append(item)
 
         if not deleted:
-            raise ValueError("Item not found")
+            raise NotFoundError("Item not found")
 
         self._repo.save(replace(manifest, items=updated_items))
         return True
@@ -216,7 +217,7 @@ class SessionService:
                 kind=None,
             )
 
-        raise ValueError("Item not found")
+        raise NotFoundError("Item not found")
 
     def read_file_chunk(
         self,
@@ -245,7 +246,7 @@ class SessionService:
         elif relpath:
             path = self._store.resolve_relpath(sid, relpath)
         else:
-            raise ValueError("Item not found")
+            raise NotFoundError("Item not found")
 
         if not path.exists():
             raise ValueError(f"File does not exist: {path}")
@@ -311,7 +312,7 @@ class SessionService:
                 updated_items.append(item)
 
         if updated_item is None:
-            raise ValueError("Item not found")
+            raise NotFoundError("Item not found")
 
         self._repo.save(replace(manifest, items=updated_items))
         return updated_item

@@ -1,7 +1,10 @@
 from subprocess import CompletedProcess
 
+import pytest
+
 from yt_dlp_transcriber.adapters.ytdlp_client import YtDlpClient
 from yt_dlp_transcriber.config import AppConfig
+from yt_dlp_transcriber.domain.errors import ExternalCommandError
 
 
 def test_ytdlp_client_get_info_parses_json():
@@ -29,3 +32,15 @@ def test_ytdlp_client_get_info_parses_json():
     assert captured["cmd"][0] == "/bin/yt-dlp"
     assert "ejs:test" in captured["cmd"]
     assert "youtube:player_client=web" in captured["cmd"]
+
+
+def test_ytdlp_client_raises_on_failure():
+    config = AppConfig.from_env({"YTDLP_TIMEOUT_SEC": "5"})
+
+    def fake_run(cmd, **kwargs):
+        return CompletedProcess(cmd, 1, stdout="boom")
+
+    client = YtDlpClient(config, runner=fake_run)
+
+    with pytest.raises(ExternalCommandError):
+        client.get_info("https://youtube.com/watch?v=abc")

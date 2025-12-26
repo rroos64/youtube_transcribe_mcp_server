@@ -126,3 +126,4 @@ Each step starts by updating tests to match the new structure before changing im
 - MCP: registered resources/templates via explicit `mcp.resource(...)(func)` calls to keep the exported functions callable even when FastMCP returns template objects.
 - Step 7 (Documentation refresh): updated `README.md` testing instructions and repository layout to match the new module structure.
 - Optional enhancement: `ManifestRepository.save` now writes via temp file + `os.replace` (tested in `tests/test_manifest_repo.py`) to make manifest writes atomic.
+- Optional enhancement (errors): added `src/yt_dlp_transcriber/domain/errors.py`, wired typed errors through ids, services, resources, and yt-dlp adapter, with tests in `tests/test_errors.py` and `tests/test_ytdlp_client.py`.
