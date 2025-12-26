@@ -11,7 +11,7 @@ from yt_dlp_transcriber.domain.models import ItemKind
 
 from .app import mcp
 from .deps import get_services
-from .logging_utils import log_event
+from yt_dlp_transcriber.logging_utils import log_event, log_warning
 from .session import get_session_id
 
 
@@ -100,6 +100,13 @@ def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None)
         content = path.read_text(encoding="utf-8", errors="replace")
     else:
         truncated = True
+        log_warning(
+            "resource_session_item.truncated",
+            session_id=str(sid),
+            item_id=item_id,
+            size=size,
+            inline_max=services.config.inline_text_max_bytes,
+        )
 
     payload = {
         "session_id": str(sid),

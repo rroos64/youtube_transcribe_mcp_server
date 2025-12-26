@@ -11,6 +11,7 @@ from typing import Callable, Iterator
 
 from yt_dlp_transcriber.config import AppConfig
 from yt_dlp_transcriber.domain.errors import ExternalCommandError
+from yt_dlp_transcriber.logging_utils import log_debug, log_error
 
 
 @dataclass(frozen=True)
@@ -82,8 +83,10 @@ class YtDlpClient:
             if cached:
                 ts, payload = cached
                 if self._time_provider() - ts <= self._cache_ttl_sec:
+                    log_debug("ytdlp_info_cache_hit", url=url)
                     return payload
 
+        log_debug("ytdlp_info_fetch", url=url)
         cmd = _build_info_command(self._config, url)
         proc = self._runner(
             cmd,
@@ -94,6 +97,7 @@ class YtDlpClient:
         )
 
         if proc.returncode != 0:
+            log_error("ytdlp_info_failed", url=url, code=proc.returncode)
             raise ExternalCommandError(
                 f"yt-dlp metadata failed (code {proc.returncode}). Output:\n{proc.stdout}"
             )
@@ -106,20 +110,24 @@ class YtDlpClient:
                 break
 
         if json_line is None:
+            log_error("ytdlp_info_missing_json", url=url)
             raise ExternalCommandError(f"yt-dlp metadata output missing JSON. Output:\n{proc.stdout}")
 
         try:
             payload = json.loads(json_line)
         except json.JSONDecodeError as exc:
+            log_error("ytdlp_info_parse_failed", url=url)
             raise ExternalCommandError(f"Failed to parse yt-dlp metadata JSON: {exc}") from exc
 
         if self._cache_ttl_sec > 0:
             self._info_cache[url] = (self._time_provider(), payload)
+            log_debug("ytdlp_info_cache_store", url=url, ttl=self._cache_ttl_sec)
 
         return payload
 
     def get_subtitles(self, url: str) -> YtDlpSubtitles:
         with self._temp_dir_factory("yt_transcribe_") as workdir:
+            log_debug("ytdlp_subtitles_fetch", url=url, dir=str(workdir))
             cmd = _build_subs_command(self._config, url, workdir)
             proc = self._runner(
                 cmd,
@@ -131,6 +139,7 @@ class YtDlpClient:
             )
 
             if proc.returncode != 0:
+                log_error("ytdlp_subtitles_failed", url=url, code=proc.returncode)
                 raise ExternalCommandError(
                     f"yt-dlp failed (code {proc.returncode}). Output:\n{proc.stdout}"
                 )
@@ -139,8 +148,10 @@ class YtDlpClient:
             if not vtts:
                 vtts = sorted(workdir.glob("*.vtt"))
             if not vtts:
+                log_error("ytdlp_subtitles_missing", url=url)
                 raise ExternalCommandError(f"No subtitle files were produced. yt-dlp output:\n{proc.stdout}")
 
             vtt_path = vtts[-1]
+            log_debug("ytdlp_subtitles_selected", url=url, file=vtt_path.name)
             vtt_text = vtt_path.read_text(encoding="utf-8", errors="replace")
             return YtDlpSubtitles(vtt_text=vtt_text, stdout=proc.stdout, picked_file=vtt_path.name)

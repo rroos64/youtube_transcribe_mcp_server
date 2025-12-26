@@ -8,7 +8,7 @@ from yt_dlp_transcriber.domain.models import ManifestItem, TranscriptFormat
 from .app import mcp
 from .deps import get_services
 from .session import get_session_id
-from .logging_utils import log_event
+from yt_dlp_transcriber.logging_utils import log_debug, log_event, log_warning
 
 _YT_URL_RE = re.compile(r"^https?://(www\.)?youtube\.com/watch\?v=|^https?://youtu\.be/")
 
@@ -21,6 +21,7 @@ def _parse_format(fmt: str) -> TranscriptFormat:
     try:
         return TranscriptFormat(fmt)
     except ValueError as exc:
+        log_warning("invalid_format", fmt=fmt)
         raise ValueError("fmt must be one of: txt, vtt, jsonl") from exc
 
 
@@ -33,6 +34,7 @@ def _item_payload(item: ManifestItem, session_id: str) -> dict:
 @mcp.tool
 def youtube_transcribe(url: str) -> str:
     if not _is_youtube_url(url):
+        log_warning("invalid_youtube_url", url=url)
         raise ValueError("Please provide a valid YouTube video URL (youtube.com/watch?v=... or youtu.be/...).")
 
     services = get_services()
@@ -48,6 +50,7 @@ def youtube_transcribe_to_file(
     ctx: Any | None = None,
 ) -> dict:
     if not _is_youtube_url(url):
+        log_warning("invalid_youtube_url", url=url)
         raise ValueError("Please provide a valid YouTube video URL (youtube.com/watch?v=... or youtu.be/...).")
     format_enum = _parse_format(fmt)
 
@@ -72,6 +75,7 @@ def youtube_transcribe_to_file(
 @mcp.tool
 def youtube_get_duration(url: str) -> dict:
     if not _is_youtube_url(url):
+        log_warning("invalid_youtube_url", url=url)
         raise ValueError("Please provide a valid YouTube video URL (youtube.com/watch?v=... or youtu.be/...).")
 
     services = get_services()
@@ -94,6 +98,7 @@ def youtube_transcribe_auto(
     ctx: Any | None = None,
 ) -> dict:
     if not _is_youtube_url(url):
+        log_warning("invalid_youtube_url", url=url)
         raise ValueError("Please provide a valid YouTube video URL (youtube.com/watch?v=... or youtu.be/...).")
     format_enum = _parse_format(fmt)
 
@@ -131,6 +136,7 @@ def youtube_transcribe_auto(
         "is_live": result.info.is_live,
     }
     if result.kind == "text":
+        log_debug("youtube_transcribe_auto.text", bytes=result.bytes)
         payload["text"] = result.text
         return payload
 
@@ -138,6 +144,7 @@ def youtube_transcribe_auto(
     if item is None or sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
+    log_debug("youtube_transcribe_auto.file", item_id=str(item.id), bytes=result.bytes)
     payload.update(_item_payload(item, str(sid)))
     return payload
 
