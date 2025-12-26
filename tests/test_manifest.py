@@ -86,5 +86,7 @@ def test_get_session_id_header_mismatch(server_module):
 
 
 def test_default_session_id_fallback(server_module, monkeypatch):
-    monkeypatch.setattr(server_module, "DEFAULT_SESSION_ID", "sess_default")
+    config = replace(server_module.APP_CONFIG, default_session_id="sess_default")
+    monkeypatch.setattr(server_module, "APP_CONFIG", config)
     assert server_module._get_session_id() == "sess_default"
+from dataclasses import replace

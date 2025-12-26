@@ -1,24 +1,30 @@
-import pytest
-
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
+from yt_dlp_transcriber.config import AppConfig
 import yt_dlp_transcriber.server as server
 
 
 @pytest.fixture()
 def server_module(tmp_path, monkeypatch):
-    monkeypatch.setattr(server, "DATA_DIR", tmp_path)
-    monkeypatch.setattr(server, "INLINE_TEXT_MAX_BYTES", 20000)
-    monkeypatch.setattr(server, "DEFAULT_TTL_SEC", 3600)
-    monkeypatch.setattr(server, "MAX_SESSION_ITEMS", 0)
-    monkeypatch.setattr(server, "MAX_SESSION_BYTES", 0)
-    monkeypatch.setattr(server, "DEFAULT_SESSION_ID", "")
+    config = AppConfig.from_env(
+        {
+            "DATA_DIR": str(tmp_path),
+            "INLINE_TEXT_MAX_BYTES": "20000",
+            "DEFAULT_TTL_SEC": "3600",
+            "MAX_SESSION_ITEMS": "0",
+            "MAX_SESSION_BYTES": "0",
+            "DEFAULT_SESSION_ID": "",
+        }
+    )
+    monkeypatch.setattr(server, "APP_CONFIG", config)
     return server
 
 

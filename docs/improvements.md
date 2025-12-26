@@ -112,3 +112,6 @@ Each step starts by updating tests to match the new structure before changing im
 - Adding a new format (e.g., `md`) only touches writer strategy + enum.
 - Unit tests no longer need to unwrap FastMCP tool decorators.
 - Core services are isolated from FastMCP and subprocess details.
+
+## Refactor Progress
+- Step 1 (Config object): added `src/yt_dlp_transcriber/config.py` with `AppConfig`, updated `src/yt_dlp_transcriber/server.py` to use `APP_CONFIG`, and added `tests/test_config.py` with minimal fixture updates.

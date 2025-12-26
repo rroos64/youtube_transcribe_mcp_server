@@ -12,6 +12,8 @@ from typing import Any, Dict
 
 from fastmcp import FastMCP
 
+from yt_dlp_transcriber.config import AppConfig
+
 # FastMCP v2.14.x uses `stateless_http` (not `stateless`)
 mcp = FastMCP(
     "yt-dlp-transcriber",
@@ -25,19 +27,7 @@ mcp = FastMCP(
 )
 
 # ---------- Config ----------
-YTDLP_BIN = os.environ.get("YTDLP_BIN", "yt-dlp")
-PLAYER_CLIENT = os.environ.get("YTDLP_PLAYER_CLIENT", "web_safari")
-REMOTE_EJS = os.environ.get("YTDLP_REMOTE_EJS", "ejs:github")
-SUB_LANG = os.environ.get("YTDLP_SUB_LANG", "en.*")
-TIMEOUT_SEC = int(os.environ.get("YTDLP_TIMEOUT_SEC", "180"))
-AUTO_TEXT_MAX_BYTES = int(os.environ.get("AUTO_TEXT_MAX_BYTES", "200000"))
-DEFAULT_TTL_SEC = int(os.environ.get("TRANSCRIPT_TTL_SECONDS", os.environ.get("DEFAULT_TTL_SEC", "3600")))
-INLINE_TEXT_MAX_BYTES = int(os.environ.get("INLINE_TEXT_MAX_BYTES", "20000"))
-MAX_SESSION_ITEMS = int(os.environ.get("MAX_SESSION_ITEMS", "0"))
-MAX_SESSION_BYTES = int(os.environ.get("MAX_SESSION_BYTES", "0"))
-DEFAULT_SESSION_ID = os.environ.get("DEFAULT_SESSION_ID", "")
-
-DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
+APP_CONFIG = AppConfig.from_env()
 
 _YT_URL_RE = re.compile(r"^https?://(www\.)?youtube\.com/watch\?v=|^https?://youtu\.be/")
 _SESSION_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
@@ -94,8 +84,8 @@ def _get_session_id(session_id: str | None = None, ctx: Any | None = None) -> st
         return _validate_session_id(session_id)
     if ctx_id:
         return _validate_session_id(ctx_id)
-    if DEFAULT_SESSION_ID:
-        return _validate_session_id(DEFAULT_SESSION_ID)
+    if APP_CONFIG.default_session_id:
+        return _validate_session_id(APP_CONFIG.default_session_id)
     raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
 
@@ -127,7 +117,7 @@ def _is_within_root(p: Path, root: Path) -> bool:
 
 def _session_root(session_id: str) -> Path:
     session_id = _validate_session_id(session_id)
-    root = DATA_DIR / session_id
+    root = APP_CONFIG.data_dir / session_id
     root.mkdir(parents=True, exist_ok=True)
     (root / _TRANSCRIPTS_DIR).mkdir(parents=True, exist_ok=True)
     (root / _DERIVED_DIR).mkdir(parents=True, exist_ok=True)
@@ -223,7 +213,7 @@ def _cleanup_session(session_id: str) -> int:
         expires_dt = _parse_ts(expires_at)
         if not pinned:
             if expires_dt is None:
-                expires_at = _expires_at(DEFAULT_TTL_SEC)
+                expires_at = _expires_at(APP_CONFIG.default_ttl_sec)
                 item["expires_at"] = expires_at
                 expires_dt = _parse_ts(expires_at)
                 changed = True
@@ -242,12 +232,12 @@ def _cleanup_session(session_id: str) -> int:
 
     manifest["items"] = kept
 
-    if MAX_SESSION_ITEMS > 0 or MAX_SESSION_BYTES > 0:
+    if APP_CONFIG.max_session_items > 0 or APP_CONFIG.max_session_bytes > 0:
         total_size = sum(int(i.get("size") or 0) for i in kept)
         removable = sorted([i for i in kept if not i.get("pinned")], key=_item_sort_key)
         while removable and (
-            (MAX_SESSION_ITEMS > 0 and len(kept) > MAX_SESSION_ITEMS)
-            or (MAX_SESSION_BYTES > 0 and total_size > MAX_SESSION_BYTES)
+            (APP_CONFIG.max_session_items > 0 and len(kept) > APP_CONFIG.max_session_items)
+            or (APP_CONFIG.max_session_bytes > 0 and total_size > APP_CONFIG.max_session_bytes)
         ):
             victim = removable.pop(0)
             try:
@@ -398,11 +388,11 @@ def _run_ytdlp_info(url: str) -> dict:
     Returns a parsed JSON dict.
     """
     cmd = [
-        YTDLP_BIN,
+        APP_CONFIG.ytdlp_bin,
         "--remote-components",
-        REMOTE_EJS,
+        APP_CONFIG.remote_ejs,
         "--extractor-args",
-        f"youtube:player_client={PLAYER_CLIENT}",
+        f"youtube:player_client={APP_CONFIG.player_client}",
         "--skip-download",
         "--no-progress",
         "--no-playlist",
@@ -415,7 +405,7 @@ def _run_ytdlp_info(url: str) -> dict:
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        timeout=TIMEOUT_SEC,
+        timeout=APP_CONFIG.timeout_sec,
     )
 
     if proc.returncode != 0:
@@ -446,14 +436,14 @@ def _run_ytdlp_subs(url: str) -> Dict[str, str]:
         workdir = Path(td)
 
         cmd = [
-            YTDLP_BIN,
-            "--remote-components",
-            REMOTE_EJS,
-            "--extractor-args",
-            f"youtube:player_client={PLAYER_CLIENT}",
-            "--write-auto-subs",
-            "--sub-lang",
-            SUB_LANG,
+        APP_CONFIG.ytdlp_bin,
+        "--remote-components",
+        APP_CONFIG.remote_ejs,
+        "--extractor-args",
+        f"youtube:player_client={APP_CONFIG.player_client}",
+        "--write-auto-subs",
+        "--sub-lang",
+        APP_CONFIG.sub_lang,
             "--skip-download",
             "--no-progress",
             "--paths",
@@ -467,7 +457,7 @@ def _run_ytdlp_subs(url: str) -> Dict[str, str]:
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            timeout=TIMEOUT_SEC,
+        timeout=APP_CONFIG.timeout_sec,
         )
 
         if proc.returncode != 0:
@@ -488,7 +478,7 @@ def _run_ytdlp_subs(url: str) -> Dict[str, str]:
 
 def _make_output_base(url: str, base_dir: Path | None = None) -> Path:
     if base_dir is None:
-        base_dir = DATA_DIR
+        base_dir = APP_CONFIG.data_dir
     vid_hash = hashlib.sha1(url.encode("utf-8")).hexdigest()[:10]
     stamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     return base_dir / f"youtube_{vid_hash}_{stamp}"
@@ -558,7 +548,7 @@ def youtube_transcribe_to_file(url: str, fmt: str = "txt", session_id: str | Non
         fmt=fmt,
         relpath=relpath,
         pinned=False,
-        ttl_seconds=DEFAULT_TTL_SEC,
+        ttl_seconds=APP_CONFIG.default_ttl_sec,
     )
 
     return {
@@ -609,7 +599,7 @@ def youtube_transcribe_auto(
         raise ValueError("fmt must be one of: txt, vtt, jsonl")
 
     if max_text_bytes is None:
-        max_text_bytes = AUTO_TEXT_MAX_BYTES
+        max_text_bytes = APP_CONFIG.auto_text_max_bytes
     if max_text_bytes < 1:
         raise ValueError("max_text_bytes must be >= 1")
 
@@ -651,7 +641,7 @@ def youtube_transcribe_auto(
         fmt=fmt,
         relpath=relpath,
         pinned=False,
-        ttl_seconds=DEFAULT_TTL_SEC,
+        ttl_seconds=APP_CONFIG.default_ttl_sec,
     )
 
     return {
@@ -726,7 +716,7 @@ def unpin_item(item_id: str, session_id: str | None = None, ctx: Any | None = No
     if not item:
         raise ValueError("Item not found")
     item["pinned"] = False
-    item["expires_at"] = _expires_at(DEFAULT_TTL_SEC)
+    item["expires_at"] = _expires_at(APP_CONFIG.default_ttl_sec)
     _save_manifest(session_id, manifest)
     return item
 
@@ -808,7 +798,7 @@ def write_text_file(
         fmt=fmt,
         relpath=rel,
         pinned=False,
-        ttl_seconds=DEFAULT_TTL_SEC,
+        ttl_seconds=APP_CONFIG.default_ttl_sec,
     )
     return {
         "id": item["id"],
@@ -1006,7 +996,7 @@ def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None)
 
     content = None
     truncated = False
-    if size <= INLINE_TEXT_MAX_BYTES:
+    if size <= APP_CONFIG.inline_text_max_bytes:
         content = p.read_text(encoding="utf-8", errors="replace")
     else:
         truncated = True
@@ -1016,7 +1006,7 @@ def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None)
         "item": item,
         "content": content,
         "truncated": truncated,
-        "inline_max_bytes": INLINE_TEXT_MAX_BYTES,
+        "inline_max_bytes": APP_CONFIG.inline_text_max_bytes,
     }
     return json.dumps(payload, ensure_ascii=False)
 
