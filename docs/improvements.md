@@ -117,3 +117,4 @@ Each step starts by updating tests to match the new structure before changing im
 - Step 1 (Config object): added `src/yt_dlp_transcriber/config.py` with `AppConfig`, updated `src/yt_dlp_transcriber/server.py` to use `APP_CONFIG`, and added `tests/test_config.py` with minimal fixture updates.
 - Step 2 (Domain models): added `src/yt_dlp_transcriber/domain/models.py` + `src/yt_dlp_transcriber/domain/types.py` with enums/value objects/dataclasses, plus `tests/test_domain_models.py`.
 - Step 3 (Storage layer): added `src/yt_dlp_transcriber/adapters/filesystem_store.py` + `src/yt_dlp_transcriber/adapters/manifest_json_repo.py` with tests in `tests/test_filesystem_store.py` and `tests/test_manifest_repo.py`.
+- Step 4 (Transcription layer): added `src/yt_dlp_transcriber/adapters/ytdlp_client.py` and `src/yt_dlp_transcriber/services/transcription_service.py` with tests in `tests/test_ytdlp_client.py` and `tests/test_transcription_service.py`.
