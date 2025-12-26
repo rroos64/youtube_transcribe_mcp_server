@@ -134,3 +134,4 @@ Each step starts by updating tests to match the new structure before changing im
 - MCP error mapping: added `src/yt_dlp_transcriber/mcp/error_handling.py` and wired tools/resources/templates to map typed errors to user-friendly exceptions, with tests in `tests/test_mcp_error_mapping.py`.
 - Documentation: updated README examples to note yt-dlp metadata caching and added logging guidance.
 - MCP errors: added explicit error codes (`ERR_INVALID_SESSION`, `ERR_INVALID_ITEM`, `ERR_NOT_FOUND`, `ERR_EXPIRED_ITEM`, `ERR_EXTERNAL_COMMAND`) in mapped exceptions and documented them in README.
+- Documentation: added coverage commands to README and added `coverage` to dev requirements.

@@ -653,6 +653,13 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
+Coverage (line-level):
+
+```bash
+python -m coverage run -m pytest
+python -m coverage report -m
+```
+
 ## Docker usage
 
 ### Build
