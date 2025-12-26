@@ -1,4 +1,20 @@
-from fastmcp import FastMCP
+try:
+    from fastmcp import FastMCP
+except ModuleNotFoundError:
+    class FastMCP:  # type: ignore[override]
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def tool(self, func=None):
+            if func is None:
+                return lambda f: f
+            return func
+
+        def resource(self, _path):
+            return lambda f: f
+
+        def run(self, *args, **kwargs) -> None:  # pragma: no cover
+            raise RuntimeError("fastmcp is required to run the server")
 
 
 # FastMCP v2.14.x uses `stateless_http` (not `stateless`)

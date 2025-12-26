@@ -120,3 +120,5 @@ Each step starts by updating tests to match the new structure before changing im
 - Step 4 (Transcription layer): added `src/yt_dlp_transcriber/adapters/ytdlp_client.py` and `src/yt_dlp_transcriber/services/transcription_service.py` with tests in `tests/test_ytdlp_client.py` and `tests/test_transcription_service.py`.
 - Step 5 (Service layer): added `src/yt_dlp_transcriber/services/session_service.py`, updated `src/yt_dlp_transcriber/services/transcription_service.py`, and aligned tests in `tests/test_manifest.py`, `tests/test_resources.py`, and `tests/test_transcription_service.py`.
 - Step 6 (MCP wiring): added `src/yt_dlp_transcriber/mcp/` modules (app/tools/resources/templates/deps/session), rewired `src/yt_dlp_transcriber/server.py`, and aligned MCP-related tests.
+- Tests: removed unused `tests/conftest.py` fixture that imported the FastMCP server, so unit tests no longer require `fastmcp` at import time.
+- Tests: added a lightweight `FastMCP` stub fallback in `src/yt_dlp_transcriber/mcp/app.py` so importing MCP modules works without `fastmcp` installed.
