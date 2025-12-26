@@ -11,6 +11,7 @@ from yt_dlp_transcriber.domain.models import ItemKind
 
 from .app import mcp
 from .deps import get_services
+from .logging_utils import log_event
 from .session import get_session_id
 
 
@@ -38,6 +39,7 @@ def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
     )
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
+    log_event("resource_session_index", session_id=str(sid))
     services.manifest_repo.cleanup_session(sid)
     manifest = services.manifest_repo.load(sid)
     return json.dumps(manifest.to_dict(), ensure_ascii=False)
@@ -52,6 +54,7 @@ def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
     )
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
+    log_event("resource_session_latest", session_id=str(sid))
     services.manifest_repo.cleanup_session(sid)
     manifest = services.manifest_repo.load(sid)
     items = [item for item in manifest.items if item.kind is ItemKind.TRANSCRIPT]
@@ -70,6 +73,7 @@ def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None)
     )
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
+    log_event("resource_session_item", session_id=str(sid), item_id=item_id)
     services.manifest_repo.cleanup_session(sid)
     item_id = urllib.parse.unquote(item_id)
     manifest = services.manifest_repo.load(sid)

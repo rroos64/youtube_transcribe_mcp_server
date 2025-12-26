@@ -8,6 +8,7 @@ from yt_dlp_transcriber.domain.models import ManifestItem, TranscriptFormat
 from .app import mcp
 from .deps import get_services
 from .session import get_session_id
+from .logging_utils import log_event
 
 _YT_URL_RE = re.compile(r"^https?://(www\.)?youtube\.com/watch\?v=|^https?://youtu\.be/")
 
@@ -35,6 +36,7 @@ def youtube_transcribe(url: str) -> str:
         raise ValueError("Please provide a valid YouTube video URL (youtube.com/watch?v=... or youtu.be/...).")
 
     services = get_services()
+    log_event("youtube_transcribe", url=url)
     return services.transcription_service.transcribe_to_text(url)
 
 
@@ -58,6 +60,7 @@ def youtube_transcribe_to_file(
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
+    log_event("youtube_transcribe_to_file", session_id=str(sid), url=url, fmt=fmt)
     item = services.transcription_service.transcribe_to_file(
         url=url,
         fmt=format_enum,
@@ -72,6 +75,7 @@ def youtube_get_duration(url: str) -> dict:
         raise ValueError("Please provide a valid YouTube video URL (youtube.com/watch?v=... or youtu.be/...).")
 
     services = get_services()
+    log_event("youtube_get_duration", url=url)
     info = services.ytdlp_client.get_info(url)
     return {
         "duration": info.get("duration"),
@@ -104,6 +108,13 @@ def youtube_transcribe_auto(
         required=False,
     )
 
+    log_event(
+        "youtube_transcribe_auto",
+        session_id=str(sid) if sid else None,
+        url=url,
+        fmt=fmt,
+        max_text_bytes=max_text_bytes,
+    )
     result = services.transcription_service.transcribe_auto(
         url=url,
         fmt=format_enum,
@@ -148,6 +159,13 @@ def list_session_items(
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
+    log_event(
+        "list_session_items",
+        session_id=str(sid),
+        kind=kind,
+        format=format,
+        pinned=pinned,
+    )
     items = services.session_service.list_items(
         sid,
         kind=kind,
@@ -168,6 +186,7 @@ def pin_item(item_id: str, session_id: str | None = None, ctx: Any | None = None
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
+    log_event("pin_item", session_id=str(sid), item_id=item_id)
     item = services.session_service.pin_item(item_id, session_id=sid)
     return item.to_dict()
 
@@ -183,6 +202,7 @@ def unpin_item(item_id: str, session_id: str | None = None, ctx: Any | None = No
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
+    log_event("unpin_item", session_id=str(sid), item_id=item_id)
     item = services.session_service.unpin_item(item_id, session_id=sid)
     return item.to_dict()
 
@@ -203,6 +223,7 @@ def set_item_ttl(
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
+    log_event("set_item_ttl", session_id=str(sid), item_id=item_id, ttl_seconds=ttl_seconds)
     item = services.session_service.set_item_ttl(item_id, ttl_seconds, session_id=sid)
     return item.to_dict()
 
@@ -218,6 +239,7 @@ def delete_item(item_id: str, session_id: str | None = None, ctx: Any | None = N
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
+    log_event("delete_item", session_id=str(sid), item_id=item_id)
     services.session_service.delete_item(item_id, session_id=sid)
     return {"deleted": True, "id": item_id}
 
@@ -239,6 +261,12 @@ def write_text_file(
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
+    log_event(
+        "write_text_file",
+        session_id=str(sid),
+        relpath=relpath,
+        overwrite=overwrite,
+    )
     item = services.session_service.write_text_file(
         relpath=relpath,
         content=content,
@@ -264,6 +292,12 @@ def read_file_info(
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
+    log_event(
+        "read_file_info",
+        session_id=str(sid),
+        item_id=item_id,
+        relpath=relpath,
+    )
     info = services.session_service.read_file_info(
         session_id=sid,
         item_id=item_id,
@@ -300,6 +334,14 @@ def read_file_chunk(
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
+    log_event(
+        "read_file_chunk",
+        session_id=str(sid),
+        item_id=item_id,
+        relpath=relpath,
+        offset=offset,
+        max_bytes=max_bytes,
+    )
     chunk = services.session_service.read_file_chunk(
         session_id=sid,
         offset=offset,
