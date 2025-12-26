@@ -63,6 +63,10 @@ class ManifestRepository:
         self._max_session_bytes = max_session_bytes
         self._use_lock = use_lock
 
+    @property
+    def default_ttl_sec(self) -> int:
+        return self._default_ttl_sec
+
     def load(self, session_id: SessionId | str) -> Manifest:
         sid = _coerce_session_id(session_id)
         path = self._store.manifest_path(sid)

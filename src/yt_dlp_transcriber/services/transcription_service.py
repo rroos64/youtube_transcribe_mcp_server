@@ -9,8 +9,9 @@ from pathlib import Path
 from typing import Mapping, Protocol
 
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
+from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
 from yt_dlp_transcriber.adapters.ytdlp_client import YtDlpClient
-from yt_dlp_transcriber.domain.models import TranscriptFormat
+from yt_dlp_transcriber.domain.models import ItemKind, ManifestItem, TranscriptFormat
 from yt_dlp_transcriber.domain.types import SessionId
 
 
@@ -110,9 +111,8 @@ class VideoInfo:
 class TranscriptionResult:
     kind: str
     text: str | None
-    path: Path | None
+    item: ManifestItem | None
     bytes: int
-    format: TranscriptFormat | None
     info: VideoInfo
 
 
@@ -131,11 +131,13 @@ class TranscriptionService:
         client: YtDlpClient,
         parser: TranscriptParser,
         store: SessionStore,
+        repo: ManifestRepository,
         writers: Mapping[TranscriptFormat, TranscriptWriter] | None = None,
     ) -> None:
         self._client = client
         self._parser = parser
         self._store = store
+        self._repo = repo
         self._writers = writers or default_writers()
 
     def transcribe_to_text(self, url: str) -> str:
@@ -151,27 +153,18 @@ class TranscriptionService:
         url: str,
         fmt: TranscriptFormat,
         session_id: SessionId | str,
-    ) -> TranscriptionResult:
+    ) -> ManifestItem:
         subs = self._client.get_subtitles(url)
         transcript = self._parser.vtt_to_text(subs.vtt_text)
         if not transcript:
             raise RuntimeError(f"Subtitle file was empty after parsing ({subs.picked_file}).")
 
-        out = self._write_transcript(
+        return self._write_transcript(
             url=url,
             fmt=fmt,
             session_id=session_id,
             transcript=transcript,
             vtt_text=subs.vtt_text,
-        )
-        size = len(transcript.encode("utf-8"))
-        return TranscriptionResult(
-            kind="file",
-            text=None,
-            path=out,
-            bytes=size,
-            format=fmt,
-            info=_build_info({}),
         )
 
     def transcribe_auto(
@@ -197,13 +190,12 @@ class TranscriptionService:
             return TranscriptionResult(
                 kind="text",
                 text=transcript,
-                path=None,
+                item=None,
                 bytes=size,
-                format=None,
                 info=info_obj,
             )
 
-        out = self._write_transcript(
+        item = self._write_transcript(
             url=url,
             fmt=fmt,
             session_id=session_id,
@@ -213,9 +205,8 @@ class TranscriptionService:
         return TranscriptionResult(
             kind="file",
             text=None,
-            path=out,
+            item=item,
             bytes=size,
-            format=fmt,
             info=info_obj,
         )
 
@@ -227,12 +218,21 @@ class TranscriptionService:
         session_id: SessionId | str,
         transcript: str,
         vtt_text: str,
-    ) -> Path:
+    ) -> ManifestItem:
         base = self._make_output_base(url, self._store.transcripts_dir(session_id))
         writer = self._writers.get(fmt)
         if writer is None:
             raise ValueError("fmt must be one of: txt, vtt, jsonl")
-        return writer.write(base, transcript, vtt_text)
+        out = writer.write(base, transcript, vtt_text)
+        relpath = out.relative_to(self._store.session_root(session_id)).as_posix()
+        return self._repo.add_item(
+            session_id=session_id,
+            kind=ItemKind.TRANSCRIPT,
+            fmt=fmt,
+            relpath=relpath,
+            pinned=False,
+            ttl_seconds=self._repo.default_ttl_sec,
+        )
 
     @staticmethod
     def _make_output_base(url: str, base_dir: Path) -> Path:

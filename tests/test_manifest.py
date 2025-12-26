@@ -1,78 +1,93 @@
-def test_add_item_and_list(server_module, unwrap):
-    session_id = "sess_test"
+from dataclasses import replace
+
+from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
+from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
+from yt_dlp_transcriber.domain.models import ItemKind, TranscriptFormat
+from yt_dlp_transcriber.domain.types import SessionId
+from yt_dlp_transcriber.services.session_service import SessionService
+
+
+def test_add_item_and_list(tmp_path):
+    store = SessionStore(tmp_path)
+    repo = ManifestRepository(store, default_ttl_sec=3600)
+    service = SessionService(store, repo)
+    session_id = SessionId("sess_test")
     relpath = "transcripts/sample.txt"
-    write = server_module._session_root(session_id) / relpath
-    write.parent.mkdir(parents=True, exist_ok=True)
+    write = store.transcripts_dir(session_id) / "sample.txt"
     write.write_text("hello", encoding="utf-8")
 
-    item = server_module._add_item(
+    item = repo.add_item(
         session_id=session_id,
-        kind="transcript",
-        fmt="txt",
+        kind=ItemKind.TRANSCRIPT,
+        fmt=TranscriptFormat.TXT,
         relpath=relpath,
         pinned=False,
         ttl_seconds=3600,
     )
 
-    listed = unwrap(server_module.list_session_items)(session_id=session_id)
-    assert listed["session_id"] == session_id
-    assert listed["items"]
-    assert listed["items"][0]["id"] == item["id"]
-    assert listed["items"][0]["relpath"] == relpath
+    listed = service.list_items(session_id)
+    assert listed
+    assert listed[0].id == item.id
+    assert listed[0].relpath == relpath
 
 
-def test_cleanup_removes_expired(server_module):
-    session_id = "sess_expired"
+def test_cleanup_removes_expired(tmp_path):
+    store = SessionStore(tmp_path)
+    repo = ManifestRepository(store, default_ttl_sec=3600)
+    session_id = SessionId("sess_expired")
     relpath = "transcripts/old.txt"
-    target = server_module._session_root(session_id) / relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
+    target = store.transcripts_dir(session_id) / "old.txt"
     target.write_text("old", encoding="utf-8")
 
-    item = server_module._add_item(
+    item = repo.add_item(
         session_id=session_id,
-        kind="transcript",
-        fmt="txt",
+        kind=ItemKind.TRANSCRIPT,
+        fmt=TranscriptFormat.TXT,
         relpath=relpath,
         pinned=False,
         ttl_seconds=3600,
     )
 
-    manifest = server_module._load_manifest(session_id)
-    for entry in manifest["items"]:
-        if entry["id"] == item["id"]:
-            entry["expires_at"] = "2000-01-01T00:00:00Z"
-    server_module._save_manifest(session_id, manifest)
+    manifest = repo.load(session_id)
+    updated_items = []
+    for entry in manifest.items:
+        if entry.id == item.id:
+            updated_items.append(replace(entry, expires_at="2000-01-01T00:00:00Z"))
+        else:
+            updated_items.append(entry)
+    repo.save(replace(manifest, items=updated_items))
 
-    removed = server_module._cleanup_session(session_id)
+    removed = repo.cleanup_session(session_id)
     assert removed >= 1
     assert not target.exists()
-    manifest = server_module._load_manifest(session_id)
-    assert manifest["items"] == []
+    assert repo.list_items(session_id) == []
 
 
-def test_pin_unpin_item(server_module, unwrap):
-    session_id = "sess_pin"
+def test_pin_unpin_item(tmp_path):
+    store = SessionStore(tmp_path)
+    repo = ManifestRepository(store, default_ttl_sec=3600)
+    service = SessionService(store, repo)
+    session_id = SessionId("sess_pin")
     relpath = "transcripts/keep.txt"
-    target = server_module._session_root(session_id) / relpath
-    target.parent.mkdir(parents=True, exist_ok=True)
+    target = store.transcripts_dir(session_id) / "keep.txt"
     target.write_text("data", encoding="utf-8")
 
-    item = server_module._add_item(
+    item = repo.add_item(
         session_id=session_id,
-        kind="transcript",
-        fmt="txt",
+        kind=ItemKind.TRANSCRIPT,
+        fmt=TranscriptFormat.TXT,
         relpath=relpath,
         pinned=False,
         ttl_seconds=3600,
     )
 
-    pinned = unwrap(server_module.pin_item)(item["id"], session_id=session_id)
-    assert pinned["pinned"] is True
-    assert pinned["expires_at"] is None
+    pinned = service.pin_item(item.id, session_id=session_id)
+    assert pinned.pinned is True
+    assert pinned.expires_at is None
 
-    unpinned = unwrap(server_module.unpin_item)(item["id"], session_id=session_id)
-    assert unpinned["pinned"] is False
-    assert unpinned["expires_at"]
+    unpinned = service.unpin_item(item.id, session_id=session_id)
+    assert unpinned.pinned is False
+    assert unpinned.expires_at
 
 
 def test_get_session_id_header_mismatch(server_module):
