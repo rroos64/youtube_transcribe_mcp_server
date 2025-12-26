@@ -131,3 +131,5 @@ Each step starts by updating tests to match the new structure before changing im
 - Ports: added `src/yt_dlp_transcriber/ports/` protocols and updated services to depend on ports for manifest repositories and transcribers.
 - Clock port: added `src/yt_dlp_transcriber/ports/clock.py` and wired `ManifestRepository` to use an injected clock for timestamps, with tests in `tests/test_manifest_repo.py`.
 - Logging: added lightweight structured logging helper and log events across debug/info/warning/error in MCP tools/resources and yt-dlp adapter.
+- MCP error mapping: added `src/yt_dlp_transcriber/mcp/error_handling.py` and wired tools/resources/templates to map typed errors to user-friendly exceptions, with tests in `tests/test_mcp_error_mapping.py`.
+- Documentation: updated README examples to note yt-dlp metadata caching and added logging guidance.

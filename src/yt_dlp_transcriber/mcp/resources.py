@@ -11,6 +11,7 @@ from yt_dlp_transcriber.domain.models import ItemKind
 
 from .app import mcp
 from .deps import get_services
+from .error_handling import handle_mcp_errors
 from yt_dlp_transcriber.logging_utils import log_event, log_warning
 from .session import get_session_id
 
@@ -30,6 +31,7 @@ def _item_sort_key(item) -> tuple[datetime, str]:
     return ts, str(item.id)
 
 
+@handle_mcp_errors
 def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
     services = get_services()
     sid = get_session_id(
@@ -45,6 +47,7 @@ def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
     return json.dumps(manifest.to_dict(), ensure_ascii=False)
 
 
+@handle_mcp_errors
 def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
     services = get_services()
     sid = get_session_id(
@@ -64,6 +67,7 @@ def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
     return json.dumps(payload, ensure_ascii=False)
 
 
+@handle_mcp_errors
 def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None) -> str:
     services = get_services()
     sid = get_session_id(

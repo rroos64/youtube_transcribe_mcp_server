@@ -7,6 +7,7 @@ from yt_dlp_transcriber.domain.models import ManifestItem, TranscriptFormat
 
 from .app import mcp
 from .deps import get_services
+from .error_handling import handle_mcp_errors
 from .session import get_session_id
 from yt_dlp_transcriber.logging_utils import log_debug, log_event, log_warning
 
@@ -31,7 +32,7 @@ def _item_payload(item: ManifestItem, session_id: str) -> dict:
     return payload
 
 
-@mcp.tool
+@handle_mcp_errors
 def youtube_transcribe(url: str) -> str:
     if not _is_youtube_url(url):
         log_warning("invalid_youtube_url", url=url)
@@ -42,7 +43,7 @@ def youtube_transcribe(url: str) -> str:
     return services.transcription_service.transcribe_to_text(url)
 
 
-@mcp.tool
+@handle_mcp_errors
 def youtube_transcribe_to_file(
     url: str,
     fmt: str = "txt",
@@ -72,7 +73,7 @@ def youtube_transcribe_to_file(
     return _item_payload(item, str(sid))
 
 
-@mcp.tool
+@handle_mcp_errors
 def youtube_get_duration(url: str) -> dict:
     if not _is_youtube_url(url):
         log_warning("invalid_youtube_url", url=url)
@@ -89,7 +90,7 @@ def youtube_get_duration(url: str) -> dict:
     }
 
 
-@mcp.tool
+@handle_mcp_errors
 def youtube_transcribe_auto(
     url: str,
     fmt: str = "txt",
@@ -149,7 +150,7 @@ def youtube_transcribe_auto(
     return payload
 
 
-@mcp.tool
+@handle_mcp_errors
 def list_session_items(
     kind: str | None = None,
     format: str | None = None,
@@ -182,7 +183,7 @@ def list_session_items(
     return {"session_id": str(sid), "items": [item.to_dict() for item in items]}
 
 
-@mcp.tool
+@handle_mcp_errors
 def pin_item(item_id: str, session_id: str | None = None, ctx: Any | None = None) -> dict:
     services = get_services()
     sid = get_session_id(
@@ -198,7 +199,7 @@ def pin_item(item_id: str, session_id: str | None = None, ctx: Any | None = None
     return item.to_dict()
 
 
-@mcp.tool
+@handle_mcp_errors
 def unpin_item(item_id: str, session_id: str | None = None, ctx: Any | None = None) -> dict:
     services = get_services()
     sid = get_session_id(
@@ -214,7 +215,7 @@ def unpin_item(item_id: str, session_id: str | None = None, ctx: Any | None = No
     return item.to_dict()
 
 
-@mcp.tool
+@handle_mcp_errors
 def set_item_ttl(
     item_id: str,
     ttl_seconds: int,
@@ -235,7 +236,7 @@ def set_item_ttl(
     return item.to_dict()
 
 
-@mcp.tool
+@handle_mcp_errors
 def delete_item(item_id: str, session_id: str | None = None, ctx: Any | None = None) -> dict:
     services = get_services()
     sid = get_session_id(
@@ -251,7 +252,7 @@ def delete_item(item_id: str, session_id: str | None = None, ctx: Any | None = N
     return {"deleted": True, "id": item_id}
 
 
-@mcp.tool
+@handle_mcp_errors
 def write_text_file(
     relpath: str,
     content: str,
@@ -283,7 +284,7 @@ def write_text_file(
     return _item_payload(item, str(sid))
 
 
-@mcp.tool
+@handle_mcp_errors
 def read_file_info(
     item_id: str | None = None,
     relpath: str | None = None,
@@ -323,7 +324,7 @@ def read_file_info(
     }
 
 
-@mcp.tool
+@handle_mcp_errors
 def read_file_chunk(
     offset: int = 0,
     max_bytes: int = 200000,
@@ -364,3 +365,17 @@ def read_file_chunk(
         "path": str(chunk.path),
         "id": str(chunk.id) if chunk.id else None,
     }
+
+
+mcp.tool(youtube_transcribe)
+mcp.tool(youtube_transcribe_to_file)
+mcp.tool(youtube_get_duration)
+mcp.tool(youtube_transcribe_auto)
+mcp.tool(list_session_items)
+mcp.tool(pin_item)
+mcp.tool(unpin_item)
+mcp.tool(set_item_ttl)
+mcp.tool(delete_item)
+mcp.tool(write_text_file)
+mcp.tool(read_file_info)
+mcp.tool(read_file_chunk)

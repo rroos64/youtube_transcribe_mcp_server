@@ -278,6 +278,9 @@ Response:
 }
 ```
 
+Note: metadata responses may be served from the in-memory cache for up to
+`YTDLP_INFO_CACHE_TTL_SEC` seconds to reduce repeated yt-dlp calls.
+
 ### `youtube_transcribe_auto`
 
 Request:
@@ -712,6 +715,19 @@ sequenceDiagram
 - `session_id` must be 1-64 characters of letters, numbers, `-`, or `_`.
 - Pinned items are exempt from TTL cleanup.
 - `read_file_chunk` decodes bytes using UTF-8 with replacement for invalid sequences.
+
+## Logging
+
+The server emits structured logs via the `yt_dlp_transcriber` logger at debug,
+info, warning, and error levels. Configure logging in the hosting process to
+see the details:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logging.getLogger("yt_dlp_transcriber").setLevel(logging.DEBUG)
+```
 
 ## Repository layout
 

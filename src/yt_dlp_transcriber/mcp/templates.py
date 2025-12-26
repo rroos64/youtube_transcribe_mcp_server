@@ -5,6 +5,7 @@ import urllib.parse
 from typing import Any
 
 from .app import mcp
+from .error_handling import handle_mcp_errors
 from .session import extract_session_id
 
 
@@ -42,6 +43,7 @@ def _encode_prompt_payload(
     return json.dumps(payload, ensure_ascii=False)
 
 
+@handle_mcp_errors
 def template_reflow(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -52,6 +54,7 @@ def template_reflow(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("paragraphs", item_id, session_id, prompt)
 
 
+@handle_mcp_errors
 def template_summary(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -64,6 +67,7 @@ def template_summary(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("summary", item_id, session_id, prompt)
 
 
+@handle_mcp_errors
 def template_translate(item_id: str, target_lang: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -75,6 +79,7 @@ def template_translate(item_id: str, target_lang: str, ctx: Any | None = None) -
     return _encode_prompt_payload("translate", item_id, session_id, prompt, {"target_lang": target_lang})
 
 
+@handle_mcp_errors
 def template_outline(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -85,6 +90,7 @@ def template_outline(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("outline", item_id, session_id, prompt)
 
 
+@handle_mcp_errors
 def template_quotes(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -95,6 +101,7 @@ def template_quotes(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("quotes", item_id, session_id, prompt)
 
 
+@handle_mcp_errors
 def template_faq(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -102,6 +109,7 @@ def template_faq(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("faq", item_id, session_id, prompt)
 
 
+@handle_mcp_errors
 def template_glossary(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -109,6 +117,7 @@ def template_glossary(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("glossary", item_id, session_id, prompt)
 
 
+@handle_mcp_errors
 def template_action_items(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
