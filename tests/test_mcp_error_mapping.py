@@ -32,22 +32,22 @@ def _raise_external():
 def test_invalid_session_maps_to_value_error():
     with pytest.raises(ValueError) as exc:
         _raise_invalid_session()
-    assert "Invalid session_id" in str(exc.value)
+    assert "ERR_INVALID_SESSION" in str(exc.value)
 
 
 def test_invalid_item_maps_to_value_error():
     with pytest.raises(ValueError) as exc:
         _raise_invalid_item()
-    assert "Invalid item_id" in str(exc.value)
+    assert "ERR_INVALID_ITEM" in str(exc.value)
 
 
 def test_not_found_maps_to_value_error():
     with pytest.raises(ValueError) as exc:
         _raise_not_found()
-    assert "Item not found" in str(exc.value)
+    assert "ERR_NOT_FOUND" in str(exc.value)
 
 
 def test_external_command_maps_to_runtime_error():
     with pytest.raises(RuntimeError) as exc:
         _raise_external()
-    assert "External command failed" in str(exc.value)
+    assert "ERR_EXTERNAL_COMMAND" in str(exc.value)

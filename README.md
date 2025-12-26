@@ -704,6 +704,8 @@ sequenceDiagram
 - `yt-dlp` failure or timeout: `RuntimeError` with captured stdout.
 - Missing subtitles: `RuntimeError` with `yt-dlp` output.
 - `read_file_chunk` validates `max_bytes` and file existence.
+- MCP errors include explicit codes in the error message: `ERR_INVALID_SESSION`, `ERR_INVALID_ITEM`,
+  `ERR_NOT_FOUND`, `ERR_EXPIRED_ITEM`, `ERR_EXTERNAL_COMMAND`.
 
 ## Notes and behavior details
 
