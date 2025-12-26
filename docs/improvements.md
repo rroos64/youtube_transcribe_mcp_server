@@ -122,3 +122,5 @@ Each step starts by updating tests to match the new structure before changing im
 - Step 6 (MCP wiring): added `src/yt_dlp_transcriber/mcp/` modules (app/tools/resources/templates/deps/session), rewired `src/yt_dlp_transcriber/server.py`, and aligned MCP-related tests.
 - Tests: removed unused `tests/conftest.py` fixture that imported the FastMCP server, so unit tests no longer require `fastmcp` at import time.
 - Tests: added a lightweight `FastMCP` stub fallback in `src/yt_dlp_transcriber/mcp/app.py` so importing MCP modules works without `fastmcp` installed.
+- Tests: added `pytest.ini` with `pythonpath = src` so `pytest` works without manually exporting `PYTHONPATH`.
+- MCP: registered resources/templates via explicit `mcp.resource(...)(func)` calls to keep the exported functions callable even when FastMCP returns template objects.

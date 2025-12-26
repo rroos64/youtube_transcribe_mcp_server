@@ -42,7 +42,6 @@ def _encode_prompt_payload(
     return json.dumps(payload, ensure_ascii=False)
 
 
-@mcp.resource("template://transcript/paragraphs/{item_id}")
 def template_reflow(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -53,7 +52,6 @@ def template_reflow(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("paragraphs", item_id, session_id, prompt)
 
 
-@mcp.resource("template://transcript/summary/{item_id}")
 def template_summary(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -66,7 +64,6 @@ def template_summary(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("summary", item_id, session_id, prompt)
 
 
-@mcp.resource("template://transcript/translate/{item_id}/{target_lang}")
 def template_translate(item_id: str, target_lang: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -78,7 +75,6 @@ def template_translate(item_id: str, target_lang: str, ctx: Any | None = None) -
     return _encode_prompt_payload("translate", item_id, session_id, prompt, {"target_lang": target_lang})
 
 
-@mcp.resource("template://transcript/outline/{item_id}")
 def template_outline(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -89,7 +85,6 @@ def template_outline(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("outline", item_id, session_id, prompt)
 
 
-@mcp.resource("template://transcript/quotes/{item_id}")
 def template_quotes(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -100,7 +95,6 @@ def template_quotes(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("quotes", item_id, session_id, prompt)
 
 
-@mcp.resource("template://transcript/faq/{item_id}")
 def template_faq(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -108,7 +102,6 @@ def template_faq(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("faq", item_id, session_id, prompt)
 
 
-@mcp.resource("template://transcript/glossary/{item_id}")
 def template_glossary(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
@@ -116,9 +109,18 @@ def template_glossary(item_id: str, ctx: Any | None = None) -> str:
     return _encode_prompt_payload("glossary", item_id, session_id, prompt)
 
 
-@mcp.resource("template://transcript/action-items/{item_id}")
 def template_action_items(item_id: str, ctx: Any | None = None) -> str:
     session_id = extract_session_id(ctx)
     item_id = urllib.parse.unquote(item_id)
     prompt = "List action items or next steps implied by the transcript. Use clear, actionable phrasing."
     return _encode_prompt_payload("action_items", item_id, session_id, prompt)
+
+
+mcp.resource("template://transcript/paragraphs/{item_id}")(template_reflow)
+mcp.resource("template://transcript/summary/{item_id}")(template_summary)
+mcp.resource("template://transcript/translate/{item_id}/{target_lang}")(template_translate)
+mcp.resource("template://transcript/outline/{item_id}")(template_outline)
+mcp.resource("template://transcript/quotes/{item_id}")(template_quotes)
+mcp.resource("template://transcript/faq/{item_id}")(template_faq)
+mcp.resource("template://transcript/glossary/{item_id}")(template_glossary)
+mcp.resource("template://transcript/action-items/{item_id}")(template_action_items)

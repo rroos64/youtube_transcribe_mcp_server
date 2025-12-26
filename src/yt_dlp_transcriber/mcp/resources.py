@@ -28,7 +28,6 @@ def _item_sort_key(item) -> tuple[datetime, str]:
     return ts, str(item.id)
 
 
-@mcp.resource("transcripts://session/{session_id}/index")
 def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
     services = get_services()
     sid = get_session_id(
@@ -43,7 +42,6 @@ def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
     return json.dumps(manifest.to_dict(), ensure_ascii=False)
 
 
-@mcp.resource("transcripts://session/{session_id}/latest")
 def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
     services = get_services()
     sid = get_session_id(
@@ -62,7 +60,6 @@ def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
     return json.dumps(payload, ensure_ascii=False)
 
 
-@mcp.resource("transcripts://session/{session_id}/item/{item_id}")
 def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None) -> str:
     services = get_services()
     sid = get_session_id(
@@ -107,3 +104,8 @@ def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None)
         "inline_max_bytes": services.config.inline_text_max_bytes,
     }
     return json.dumps(payload, ensure_ascii=False)
+
+
+mcp.resource("transcripts://session/{session_id}/index")(resource_session_index)
+mcp.resource("transcripts://session/{session_id}/latest")(resource_session_latest)
+mcp.resource("transcripts://session/{session_id}/item/{item_id}")(resource_session_item)
