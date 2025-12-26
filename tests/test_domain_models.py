@@ -47,7 +47,7 @@ def test_manifest_item_round_trip():
     parsed = ManifestItem.from_dict(payload)
     assert parsed.id == ItemId("tr_abc123")
     assert parsed.kind is ItemKind.TRANSCRIPT
-    assert parsed.format is TranscriptFormat.TXT
+    assert parsed.format == TranscriptFormat.TXT.value
 
 
 def test_manifest_round_trip():

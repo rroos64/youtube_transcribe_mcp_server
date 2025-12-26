@@ -4,6 +4,7 @@ from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
 from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
 from yt_dlp_transcriber.domain.models import ItemKind, TranscriptFormat
 from yt_dlp_transcriber.domain.types import SessionId
+from yt_dlp_transcriber.mcp.session import get_session_id
 from yt_dlp_transcriber.services.session_service import SessionService
 
 
@@ -90,18 +91,16 @@ def test_pin_unpin_item(tmp_path):
     assert unpinned.expires_at
 
 
-def test_get_session_id_header_mismatch(server_module):
+def test_get_session_id_header_mismatch():
     ctx = {"mcp-session-id": "sess_ctx"}
     try:
-        server_module._get_session_id(session_id="sess_other", ctx=ctx)
+        get_session_id(session_id="sess_other", ctx=ctx, default_session_id="")
     except ValueError as exc:
         assert "does not match" in str(exc)
     else:
         raise AssertionError("Expected mismatch error")
 
 
-def test_default_session_id_fallback(server_module, monkeypatch):
-    config = replace(server_module.APP_CONFIG, default_session_id="sess_default")
-    monkeypatch.setattr(server_module, "APP_CONFIG", config)
-    assert server_module._get_session_id() == "sess_default"
+def test_default_session_id_fallback():
+    assert str(get_session_id(default_session_id="sess_default")) == "sess_default"
 from dataclasses import replace

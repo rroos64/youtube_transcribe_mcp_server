@@ -173,7 +173,7 @@ class TranscriptionService:
         url: str,
         fmt: TranscriptFormat,
         max_text_bytes: int,
-        session_id: SessionId | str,
+        session_id: SessionId | str | None,
     ) -> TranscriptionResult:
         if max_text_bytes < 1:
             raise ValueError("max_text_bytes must be >= 1")
@@ -194,6 +194,9 @@ class TranscriptionService:
                 bytes=size,
                 info=info_obj,
             )
+
+        if session_id is None:
+            raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
 
         item = self._write_transcript(
             url=url,

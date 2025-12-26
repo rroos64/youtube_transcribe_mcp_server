@@ -57,7 +57,7 @@ def test_transcribe_auto_returns_file_when_large(tmp_path):
     assert result.text is None
     assert result.item is not None
     assert result.item.kind is ItemKind.TRANSCRIPT
-    assert result.item.format is TranscriptFormat.TXT
+    assert result.item.format == TranscriptFormat.TXT.value
 
     path = store.resolve_relpath(session_id, result.item.relpath)
     assert path.exists()

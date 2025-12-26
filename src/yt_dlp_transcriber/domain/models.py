@@ -22,7 +22,7 @@ class ItemKind(str, Enum):
 class ManifestItem:
     id: ItemId
     kind: ItemKind
-    format: TranscriptFormat
+    format: str
     relpath: str
     size: int
     created_at: str
@@ -30,10 +30,13 @@ class ManifestItem:
     pinned: bool = False
 
     def to_dict(self) -> dict[str, Any]:
+        format_value = self.format
+        if isinstance(self.format, TranscriptFormat):
+            format_value = self.format.value
         return {
             "id": str(self.id),
             "kind": self.kind.value,
-            "format": self.format.value,
+            "format": format_value,
             "relpath": self.relpath,
             "size": self.size,
             "created_at": self.created_at,
@@ -46,7 +49,7 @@ class ManifestItem:
         return cls(
             id=ItemId(str(data.get("id", ""))),
             kind=ItemKind(str(data.get("kind", ItemKind.TRANSCRIPT.value))),
-            format=TranscriptFormat(str(data.get("format", TranscriptFormat.TXT.value))),
+            format=str(data.get("format", TranscriptFormat.TXT.value)),
             relpath=str(data.get("relpath", "")),
             size=int(data.get("size", 0)),
             created_at=str(data.get("created_at", "")),

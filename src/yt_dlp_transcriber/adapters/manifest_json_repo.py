@@ -122,7 +122,7 @@ class ManifestRepository:
         *,
         session_id: SessionId | str,
         kind: ItemKind,
-        fmt: TranscriptFormat,
+        fmt: TranscriptFormat | str,
         relpath: str,
         pinned: bool,
         ttl_seconds: int,
@@ -135,10 +135,11 @@ class ManifestRepository:
         target = self._store.resolve_relpath(sid, relpath)
         size = target.stat().st_size
 
+        format_value = fmt.value if isinstance(fmt, TranscriptFormat) else str(fmt)
         item = ManifestItem(
             id=item_id,
             kind=kind,
-            format=fmt,
+            format=format_value,
             relpath=relpath,
             size=size,
             created_at=created_at,
@@ -154,16 +155,20 @@ class ManifestRepository:
         self,
         session_id: SessionId | str,
         *,
-        kind: ItemKind | None = None,
-        format: TranscriptFormat | None = None,
+        kind: ItemKind | str | None = None,
+        format: TranscriptFormat | str | None = None,
         pinned: bool | None = None,
     ) -> list[ManifestItem]:
         manifest = self.load(session_id)
         items = manifest.items
         if kind is not None:
-            items = [item for item in items if item.kind is kind]
+            if isinstance(kind, ItemKind):
+                items = [item for item in items if item.kind is kind]
+            else:
+                items = [item for item in items if item.kind.value == str(kind)]
         if format is not None:
-            items = [item for item in items if item.format is format]
+            format_value = format.value if isinstance(format, TranscriptFormat) else str(format)
+            items = [item for item in items if str(item.format) == format_value]
         if pinned is not None:
             items = [item for item in items if item.pinned is pinned]
         return items

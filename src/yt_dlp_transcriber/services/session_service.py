@@ -19,7 +19,7 @@ class FileInfo:
     size: int
     pinned: bool | None
     expires_at: str | None
-    format: TranscriptFormat | None
+    format: str | None
     kind: ItemKind | None
 
 
@@ -60,8 +60,8 @@ class SessionService:
         self,
         session_id: SessionId | str,
         *,
-        kind: ItemKind | None = None,
-        format: TranscriptFormat | None = None,
+        kind: ItemKind | str | None = None,
+        format: TranscriptFormat | str | None = None,
         pinned: bool | None = None,
     ) -> list[ManifestItem]:
         sid = _coerce_session_id(session_id)
@@ -130,6 +130,44 @@ class SessionService:
 
         self._repo.save(replace(manifest, items=updated_items))
         return True
+
+    def write_text_file(
+        self,
+        *,
+        relpath: str,
+        content: str,
+        overwrite: bool = False,
+        session_id: SessionId | str,
+    ) -> ManifestItem:
+        if not relpath:
+            raise ValueError("relpath is required")
+        if relpath.startswith("/") or ".." in relpath.split("/"):
+            raise ValueError("relpath must be a safe relative path")
+
+        sid = _coerce_session_id(session_id)
+        self._repo.cleanup_session(sid)
+        derived_root = self._store.derived_dir(sid)
+        target = (derived_root / relpath).resolve()
+        try:
+            target.relative_to(derived_root.resolve())
+        except ValueError as exc:
+            raise ValueError("relpath resolves outside derived directory") from exc
+
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if target.exists() and not overwrite:
+            raise ValueError("File already exists; set overwrite=true to replace")
+
+        target.write_text(content, encoding="utf-8")
+        fmt = target.suffix.lstrip(".") or "txt"
+        rel = target.relative_to(self._store.session_root(sid)).as_posix()
+        return self._repo.add_item(
+            session_id=sid,
+            kind=ItemKind.DERIVED,
+            fmt=fmt,
+            relpath=rel,
+            pinned=False,
+            ttl_seconds=self._repo.default_ttl_sec,
+        )
 
     def read_file_info(
         self,
