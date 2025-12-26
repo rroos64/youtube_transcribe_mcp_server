@@ -14,6 +14,7 @@ def test_config_defaults():
     assert config.auto_text_max_bytes == 200000
     assert config.default_ttl_sec == 3600
     assert config.inline_text_max_bytes == 20000
+    assert config.info_cache_ttl_sec == 300
     assert config.max_session_items == 0
     assert config.max_session_bytes == 0
     assert config.default_session_id == ""
@@ -31,6 +32,7 @@ def test_config_env_overrides():
         "TRANSCRIPT_TTL_SECONDS": "555",
         "DEFAULT_TTL_SEC": "222",
         "INLINE_TEXT_MAX_BYTES": "321",
+        "YTDLP_INFO_CACHE_TTL_SEC": "600",
         "MAX_SESSION_ITEMS": "10",
         "MAX_SESSION_BYTES": "4096",
         "DEFAULT_SESSION_ID": "sess_default",
@@ -46,6 +48,7 @@ def test_config_env_overrides():
     assert config.auto_text_max_bytes == 123
     assert config.default_ttl_sec == 555
     assert config.inline_text_max_bytes == 321
+    assert config.info_cache_ttl_sec == 600
     assert config.max_session_items == 10
     assert config.max_session_bytes == 4096
     assert config.default_session_id == "sess_default"

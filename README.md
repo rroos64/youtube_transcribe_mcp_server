@@ -542,6 +542,7 @@ Environment variables:
 - `YTDLP_REMOTE_EJS` (default `ejs:github`): yt-dlp remote components selector.
 - `YTDLP_SUB_LANG` (default `en.*`): subtitle language pattern.
 - `YTDLP_TIMEOUT_SEC` (default `180`): yt-dlp subprocess timeout.
+- `YTDLP_INFO_CACHE_TTL_SEC` (default `300`): cache TTL for yt-dlp metadata lookups.
 - `AUTO_TEXT_MAX_BYTES` (default `200000`): threshold for `youtube_transcribe_auto` text responses.
 - `TRANSCRIPT_TTL_SECONDS` (default `3600`): file expiry for session items (falls back to `DEFAULT_TTL_SEC` if set).
 - `INLINE_TEXT_MAX_BYTES` (default `20000`): inline content threshold for `transcripts://session/{session_id}/item/{id}`.

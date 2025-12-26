@@ -44,3 +44,33 @@ def test_ytdlp_client_raises_on_failure():
 
     with pytest.raises(ExternalCommandError):
         client.get_info("https://youtube.com/watch?v=abc")
+
+
+def test_ytdlp_client_info_cache_respects_ttl():
+    config = AppConfig.from_env({"YTDLP_TIMEOUT_SEC": "5"})
+    calls = {"count": 0}
+    clock = {"now": 1000.0}
+
+    def fake_time():
+        return clock["now"]
+
+    def fake_run(cmd, **kwargs):
+        calls["count"] += 1
+        return CompletedProcess(
+            cmd,
+            0,
+            stdout='{"duration": 10, "title": "cached"}\n',
+        )
+
+    client = YtDlpClient(config, runner=fake_run, cache_ttl_sec=60, time_provider=fake_time)
+
+    first = client.get_info("https://youtube.com/watch?v=abc")
+    second = client.get_info("https://youtube.com/watch?v=abc")
+
+    assert first["title"] == "cached"
+    assert second["title"] == "cached"
+    assert calls["count"] == 1
+
+    clock["now"] += 61
+    client.get_info("https://youtube.com/watch?v=abc")
+    assert calls["count"] == 2

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import subprocess
 import tempfile
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,12 +66,24 @@ class YtDlpClient:
         *,
         runner: Callable[..., subprocess.CompletedProcess[str]] | None = None,
         temp_dir_factory: Callable[[str], Iterator[Path]] | None = None,
+        cache_ttl_sec: int = 0,
+        time_provider: Callable[[], float] | None = None,
     ) -> None:
         self._config = config
         self._runner = runner or subprocess.run
         self._temp_dir_factory = temp_dir_factory or _temp_dir
+        self._cache_ttl_sec = cache_ttl_sec
+        self._time_provider = time_provider or time.time
+        self._info_cache: dict[str, tuple[float, dict]] = {}
 
     def get_info(self, url: str) -> dict:
+        if self._cache_ttl_sec > 0:
+            cached = self._info_cache.get(url)
+            if cached:
+                ts, payload = cached
+                if self._time_provider() - ts <= self._cache_ttl_sec:
+                    return payload
+
         cmd = _build_info_command(self._config, url)
         proc = self._runner(
             cmd,
@@ -96,9 +109,14 @@ class YtDlpClient:
             raise ExternalCommandError(f"yt-dlp metadata output missing JSON. Output:\n{proc.stdout}")
 
         try:
-            return json.loads(json_line)
+            payload = json.loads(json_line)
         except json.JSONDecodeError as exc:
             raise ExternalCommandError(f"Failed to parse yt-dlp metadata JSON: {exc}") from exc
+
+        if self._cache_ttl_sec > 0:
+            self._info_cache[url] = (self._time_provider(), payload)
+
+        return payload
 
     def get_subtitles(self, url: str) -> YtDlpSubtitles:
         with self._temp_dir_factory("yt_transcribe_") as workdir:

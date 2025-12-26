@@ -16,6 +16,7 @@ class AppConfig:
     auto_text_max_bytes: int
     default_ttl_sec: int
     inline_text_max_bytes: int
+    info_cache_ttl_sec: int
     max_session_items: int
     max_session_bytes: int
     default_session_id: str
@@ -37,6 +38,7 @@ class AppConfig:
             auto_text_max_bytes=int(env.get("AUTO_TEXT_MAX_BYTES", "200000")),
             default_ttl_sec=int(default_ttl_raw),
             inline_text_max_bytes=int(env.get("INLINE_TEXT_MAX_BYTES", "20000")),
+            info_cache_ttl_sec=int(env.get("YTDLP_INFO_CACHE_TTL_SEC", "300")),
             max_session_items=int(env.get("MAX_SESSION_ITEMS", "0")),
             max_session_bytes=int(env.get("MAX_SESSION_BYTES", "0")),
             default_session_id=env.get("DEFAULT_SESSION_ID", ""),

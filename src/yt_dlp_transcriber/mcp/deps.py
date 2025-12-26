@@ -33,7 +33,7 @@ def build_services(config: AppConfig | None = None) -> Services:
         max_session_items=config.max_session_items,
         max_session_bytes=config.max_session_bytes,
     )
-    client = YtDlpClient(config)
+    client = YtDlpClient(config, cache_ttl_sec=config.info_cache_ttl_sec)
     parser = TranscriptParser()
     transcription_service = TranscriptionService(client, parser, store, repo)
     session_service = SessionService(store, repo)
