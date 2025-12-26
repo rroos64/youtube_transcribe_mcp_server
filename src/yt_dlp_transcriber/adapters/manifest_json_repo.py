@@ -100,22 +100,14 @@ class ManifestRepository:
         payload = manifest.to_dict()
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with self._locked_file(path) as locked_handle:
-            if locked_handle is None:
-                with path.open("a+", encoding="utf-8") as handle:
-                    handle.seek(0)
-                    handle.truncate(0)
-                    json.dump(payload, handle, ensure_ascii=False, indent=2)
-                    handle.write("\n")
-                    handle.flush()
-                    os.fsync(handle.fileno())
-            else:
-                locked_handle.seek(0)
-                locked_handle.truncate(0)
-                json.dump(payload, locked_handle, ensure_ascii=False, indent=2)
-                locked_handle.write("\n")
-                locked_handle.flush()
-                os.fsync(locked_handle.fileno())
+        tmp_path = path.with_name(f"{path.name}.tmp")
+        with self._locked_file(path):
+            with tmp_path.open("w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+                handle.write("\n")
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(tmp_path, path)
 
     def add_item(
         self,

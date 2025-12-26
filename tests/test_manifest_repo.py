@@ -1,4 +1,5 @@
 from dataclasses import replace
+import os
 
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
 from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
@@ -59,3 +60,27 @@ def test_repo_cleanup_removes_expired(tmp_path):
     assert removed >= 1
     assert not target.exists()
     assert repo.list_items(session_id) == []
+
+
+def test_repo_save_uses_atomic_replace(tmp_path, monkeypatch):
+    store = SessionStore(tmp_path)
+    repo = ManifestRepository(store, default_ttl_sec=3600)
+    session_id = SessionId("sess_atomic")
+
+    manifest = repo.load(session_id)
+    calls = []
+    real_replace = os.replace
+
+    def spy_replace(src, dst):
+        calls.append((src, dst))
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", spy_replace)
+
+    repo.save(manifest)
+
+    assert calls
+    src, dst = calls[-1]
+    assert str(src).endswith(".tmp")
+    assert str(dst).endswith("manifest.json")
+    assert (store.manifest_path(session_id)).exists()
