@@ -149,3 +149,7 @@ Each step starts by updating tests to match the new structure before changing im
 - Refactor: added `domain/time_utils.py` and replaced duplicated timestamp parsing in manifest repo and MCP resources.
 - Tests: added coverage for new MCP payload helper to lock in prompt payload structure.
 - Refactor: centralized MCP JSON payload encoding and prompt payload construction in `mcp/payloads.py`.
+- Tests: added coverage for MCP session index default handling and missing session id error paths.
+- Refactor: reduced duplication in MCP resources by centralizing session/manifest loading in a helper.
+- Tests: added coverage for MCP templates (reflow/quotes/faq/glossary/action-items) to exercise prompt payloads.
+- Refactor: extracted MCP template rendering helper to centralize session/item decoding and payload assembly.

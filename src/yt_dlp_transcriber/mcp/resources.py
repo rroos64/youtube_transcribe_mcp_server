@@ -22,8 +22,13 @@ def _item_sort_key(item) -> tuple[datetime, str]:
     return ts, str(item.id)
 
 
-@handle_mcp_errors
-def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
+def _load_session_manifest(
+    *,
+    session_id: str,
+    ctx: Any | None,
+    event: str,
+    item_id: str | None = None,
+):
     services = get_services()
     sid = get_session_id(
         session_id=session_id,
@@ -32,25 +37,29 @@ def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
     )
     if sid is None:
         raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
-    log_event("resource_session_index", session_id=str(sid))
+    log_event(event, session_id=str(sid), item_id=item_id)
     services.manifest_repo.cleanup_session(sid)
     manifest = services.manifest_repo.load(sid)
+    return services, sid, manifest
+
+
+@handle_mcp_errors
+def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
+    services, sid, manifest = _load_session_manifest(
+        session_id=session_id,
+        ctx=ctx,
+        event="resource_session_index",
+    )
     return json_payload(manifest.to_dict())
 
 
 @handle_mcp_errors
 def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
-    services = get_services()
-    sid = get_session_id(
+    services, sid, manifest = _load_session_manifest(
         session_id=session_id,
         ctx=ctx,
-        default_session_id=services.config.default_session_id,
+        event="resource_session_latest",
     )
-    if sid is None:
-        raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
-    log_event("resource_session_latest", session_id=str(sid))
-    services.manifest_repo.cleanup_session(sid)
-    manifest = services.manifest_repo.load(sid)
     items = [item for item in manifest.items if item.kind is ItemKind.TRANSCRIPT]
     items.sort(key=_item_sort_key)
     latest = items[-1] if items else None
@@ -60,18 +69,13 @@ def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
 
 @handle_mcp_errors
 def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None) -> str:
-    services = get_services()
-    sid = get_session_id(
+    services, sid, manifest = _load_session_manifest(
         session_id=session_id,
         ctx=ctx,
-        default_session_id=services.config.default_session_id,
+        event="resource_session_item",
+        item_id=item_id,
     )
-    if sid is None:
-        raise ValueError("session_id is required (pass session_id or set mcp-session-id header)")
-    log_event("resource_session_item", session_id=str(sid), item_id=item_id)
-    services.manifest_repo.cleanup_session(sid)
     item_id = urllib.parse.unquote(item_id)
-    manifest = services.manifest_repo.load(sid)
 
     item = None
     for entry in manifest.items:

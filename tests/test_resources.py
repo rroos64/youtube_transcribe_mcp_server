@@ -1,4 +1,5 @@
 import json
+import pytest
 from dataclasses import replace
 
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
@@ -8,7 +9,11 @@ from yt_dlp_transcriber.domain.models import ItemKind, TranscriptFormat
 from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
 from yt_dlp_transcriber.domain.types import SessionId
 from yt_dlp_transcriber.mcp.deps import build_services, set_services
-from yt_dlp_transcriber.mcp.resources import resource_session_item, resource_session_latest
+from yt_dlp_transcriber.mcp.resources import (
+    resource_session_index,
+    resource_session_item,
+    resource_session_latest,
+)
 from yt_dlp_transcriber.mcp.templates import template_summary
 from yt_dlp_transcriber.services.session_service import SessionService
 
@@ -158,6 +163,30 @@ def test_resource_session_latest_returns_newest_item(tmp_path):
         payload = resource_session_latest(str(session_id))
         data = json.loads(payload)
         assert data["item"]["id"] == str(second.id)
+    finally:
+        set_services(None)
+
+
+def test_resource_session_index_uses_default_session_id(tmp_path):
+    config = AppConfig.from_env(
+        {"DATA_DIR": str(tmp_path), "DEFAULT_SESSION_ID": "sess_default"}
+    )
+    services = build_services(config)
+    set_services(services)
+    try:
+        payload = resource_session_index("")
+        data = json.loads(payload)
+        assert data["session_id"] == "sess_default"
+    finally:
+        set_services(None)
+
+
+def test_resource_session_index_requires_session_id(tmp_path):
+    services = _make_services(tmp_path)
+    set_services(services)
+    try:
+        with pytest.raises(ValueError):
+            resource_session_index("")
     finally:
         set_services(None)
 
