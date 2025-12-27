@@ -32,6 +32,67 @@ flowchart LR
   Server -->|text or item id| Client
 ```
 
+## Class diagrams
+
+### Domain model
+
+```mermaid
+classDiagram
+  class SessionId {
+    +value: str
+  }
+  class ItemId {
+    +value: str
+  }
+  class Manifest {
+    +session_id: SessionId
+    +created_at: str
+    +items: list~ManifestItem~
+  }
+  class ManifestItem {
+    +id: ItemId
+    +kind: ItemKind
+    +format: str
+    +relpath: str
+    +size: int
+    +created_at: str
+    +expires_at: str?
+    +pinned: bool
+  }
+  class ItemKind
+  class TranscriptFormat
+
+  Manifest "1" o-- "*" ManifestItem
+  Manifest --> SessionId
+  ManifestItem --> ItemId
+  ManifestItem --> ItemKind
+  ManifestItem --> TranscriptFormat
+```
+
+### Services and adapters
+
+```mermaid
+classDiagram
+  class AppConfig
+  class SessionStore
+  class ManifestRepository
+  class YtDlpClient
+  class TranscriptParser
+  class TranscriptionService
+  class SessionService
+  class TranscriptWriter
+
+  YtDlpClient --> AppConfig
+  ManifestRepository --> SessionStore
+  TranscriptionService --> YtDlpClient
+  TranscriptionService --> TranscriptParser
+  TranscriptionService --> SessionStore
+  TranscriptionService --> ManifestRepository
+  TranscriptionService --> TranscriptWriter : uses
+  SessionService --> SessionStore
+  SessionService --> ManifestRepository
+```
+
 ## Detailed data flow
 
 ```mermaid

@@ -153,3 +153,4 @@ Each step starts by updating tests to match the new structure before changing im
 - Refactor: reduced duplication in MCP resources by centralizing session/manifest loading in a helper.
 - Tests: added coverage for MCP templates (reflow/quotes/faq/glossary/action-items) to exercise prompt payloads.
 - Refactor: extracted MCP template rendering helper to centralize session/item decoding and payload assembly.
+- Documentation: added Mermaid class diagrams for domain model and service/adapters in README.
