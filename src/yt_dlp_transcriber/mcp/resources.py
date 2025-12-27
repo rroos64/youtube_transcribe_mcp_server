@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import urllib.parse
 from datetime import datetime
 from typing import Any
@@ -13,6 +12,7 @@ from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
 from .app import mcp
 from .deps import get_services
 from .error_handling import handle_mcp_errors
+from .payloads import json_payload
 from yt_dlp_transcriber.logging_utils import log_event, log_warning
 from .session import get_session_id
 
@@ -35,7 +35,7 @@ def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
     log_event("resource_session_index", session_id=str(sid))
     services.manifest_repo.cleanup_session(sid)
     manifest = services.manifest_repo.load(sid)
-    return json.dumps(manifest.to_dict(), ensure_ascii=False)
+    return json_payload(manifest.to_dict())
 
 
 @handle_mcp_errors
@@ -55,7 +55,7 @@ def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
     items.sort(key=_item_sort_key)
     latest = items[-1] if items else None
     payload = {"session_id": str(sid), "item": latest.to_dict() if latest else None}
-    return json.dumps(payload, ensure_ascii=False)
+    return json_payload(payload)
 
 
 @handle_mcp_errors
@@ -110,7 +110,7 @@ def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None)
         "truncated": truncated,
         "inline_max_bytes": services.config.inline_text_max_bytes,
     }
-    return json.dumps(payload, ensure_ascii=False)
+    return json_payload(payload)
 
 
 mcp.resource("transcripts://session/{session_id}/index")(resource_session_index)

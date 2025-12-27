@@ -147,3 +147,5 @@ Each step starts by updating tests to match the new structure before changing im
 - Coverage: expanded tests for logging field filtering and expired-item mapping; manifest repo cleanup/remove error paths and lock fallback now covered (overall coverage ~98%).
 - Refactor (tests): added time parsing tests and updated resource/manifest tests to use shared time parsing helper.
 - Refactor: added `domain/time_utils.py` and replaced duplicated timestamp parsing in manifest repo and MCP resources.
+- Tests: added coverage for new MCP payload helper to lock in prompt payload structure.
+- Refactor: centralized MCP JSON payload encoding and prompt payload construction in `mcp/payloads.py`.
