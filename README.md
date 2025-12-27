@@ -540,9 +540,25 @@ Example response for `transcripts://session/sess_123/item/tr_58aafd83e6f14c6e8c2
 }
 ```
 
-## Resource templates (prompt-only)
+## Prompts
 
-Templates emit prompts for the calling agent to run. They do not perform AI work on the server.
+Prompts emit instructions for the calling agent to run. They do not perform AI work on the server.
+
+- `paragraphs`
+- `summary`
+- `translate`
+- `outline`
+- `quotes`
+- `faq`
+- `glossary`
+- `action_items`
+
+Clients that only support tools can still access prompts via the PromptToolMiddleware-exposed
+`list_prompts` and `get_prompt` tools.
+
+## Resource templates (legacy prompt-only)
+
+These templates emit structured prompt payloads for clients that expect the `template://` resources.
 
 - `template://transcript/paragraphs/{id}`
 - `template://transcript/summary/{id}`

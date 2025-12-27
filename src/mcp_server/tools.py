@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 from domain.models import ManifestItem, TranscriptFormat
 
-from .app import mcp
+from .app import Context, mcp
 from .deps import get_services
 from .error_handling import handle_mcp_errors
 from .session import get_session_id
@@ -48,7 +47,7 @@ def youtube_transcribe_to_file(
     url: str,
     fmt: str = "txt",
     session_id: str | None = None,
-    ctx: Any | None = None,
+    ctx: Context = None,
 ) -> dict:
     if not _is_youtube_url(url):
         log_warning("invalid_youtube_url", url=url)
@@ -96,7 +95,7 @@ def youtube_transcribe_auto(
     fmt: str = "txt",
     max_text_bytes: int | None = None,
     session_id: str | None = None,
-    ctx: Any | None = None,
+    ctx: Context = None,
 ) -> dict:
     if not _is_youtube_url(url):
         log_warning("invalid_youtube_url", url=url)
@@ -156,7 +155,7 @@ def list_session_items(
     format: str | None = None,
     pinned: bool | None = None,
     session_id: str | None = None,
-    ctx: Any | None = None,
+    ctx: Context = None,
 ) -> dict:
     services = get_services()
     sid = get_session_id(
@@ -184,7 +183,7 @@ def list_session_items(
 
 
 @handle_mcp_errors
-def pin_item(item_id: str, session_id: str | None = None, ctx: Any | None = None) -> dict:
+def pin_item(item_id: str, session_id: str | None = None, ctx: Context = None) -> dict:
     services = get_services()
     sid = get_session_id(
         session_id=session_id,
@@ -200,7 +199,7 @@ def pin_item(item_id: str, session_id: str | None = None, ctx: Any | None = None
 
 
 @handle_mcp_errors
-def unpin_item(item_id: str, session_id: str | None = None, ctx: Any | None = None) -> dict:
+def unpin_item(item_id: str, session_id: str | None = None, ctx: Context = None) -> dict:
     services = get_services()
     sid = get_session_id(
         session_id=session_id,
@@ -220,7 +219,7 @@ def set_item_ttl(
     item_id: str,
     ttl_seconds: int,
     session_id: str | None = None,
-    ctx: Any | None = None,
+    ctx: Context = None,
 ) -> dict:
     services = get_services()
     sid = get_session_id(
@@ -237,7 +236,7 @@ def set_item_ttl(
 
 
 @handle_mcp_errors
-def delete_item(item_id: str, session_id: str | None = None, ctx: Any | None = None) -> dict:
+def delete_item(item_id: str, session_id: str | None = None, ctx: Context = None) -> dict:
     services = get_services()
     sid = get_session_id(
         session_id=session_id,
@@ -258,7 +257,7 @@ def write_text_file(
     content: str,
     overwrite: bool = False,
     session_id: str | None = None,
-    ctx: Any | None = None,
+    ctx: Context = None,
 ) -> dict:
     services = get_services()
     sid = get_session_id(
@@ -289,7 +288,7 @@ def read_file_info(
     item_id: str | None = None,
     relpath: str | None = None,
     session_id: str | None = None,
-    ctx: Any | None = None,
+    ctx: Context = None,
 ) -> dict:
     services = get_services()
     sid = get_session_id(
@@ -331,7 +330,7 @@ def read_file_chunk(
     item_id: str | None = None,
     relpath: str | None = None,
     session_id: str | None = None,
-    ctx: Any | None = None,
+    ctx: Context = None,
 ) -> dict:
     services = get_services()
     sid = get_session_id(

@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import urllib.parse
 from datetime import datetime
-from typing import Any
 from dataclasses import replace
 
 from domain.errors import NotFoundError
 from domain.models import ItemKind
 from domain.time_utils import parse_iso_timestamp
 
-from .app import mcp
+from .app import Context, mcp
 from .deps import get_services
 from .error_handling import handle_mcp_errors
 from .payloads import json_payload
@@ -22,10 +21,13 @@ def _item_sort_key(item) -> tuple[datetime, str]:
     return ts, str(item.id)
 
 
+_READ_ONLY_HINTS = {"readOnlyHint": True, "idempotentHint": True}
+
+
 def _load_session_manifest(
     *,
     session_id: str,
-    ctx: Any | None,
+    ctx: Context = None,
     event: str,
     item_id: str | None = None,
 ):
@@ -44,7 +46,7 @@ def _load_session_manifest(
 
 
 @handle_mcp_errors
-def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
+def resource_session_index(session_id: str, ctx: Context = None) -> str:
     services, sid, manifest = _load_session_manifest(
         session_id=session_id,
         ctx=ctx,
@@ -54,7 +56,7 @@ def resource_session_index(session_id: str, ctx: Any | None = None) -> str:
 
 
 @handle_mcp_errors
-def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
+def resource_session_latest(session_id: str, ctx: Context = None) -> str:
     services, sid, manifest = _load_session_manifest(
         session_id=session_id,
         ctx=ctx,
@@ -68,7 +70,7 @@ def resource_session_latest(session_id: str, ctx: Any | None = None) -> str:
 
 
 @handle_mcp_errors
-def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None) -> str:
+def resource_session_item(session_id: str, item_id: str, ctx: Context = None) -> str:
     services, sid, manifest = _load_session_manifest(
         session_id=session_id,
         ctx=ctx,
@@ -117,6 +119,15 @@ def resource_session_item(session_id: str, item_id: str, ctx: Any | None = None)
     return json_payload(payload)
 
 
-mcp.resource("transcripts://session/{session_id}/index")(resource_session_index)
-mcp.resource("transcripts://session/{session_id}/latest")(resource_session_latest)
-mcp.resource("transcripts://session/{session_id}/item/{item_id}")(resource_session_item)
+mcp.resource(
+    "transcripts://session/{session_id}/index",
+    annotations=_READ_ONLY_HINTS,
+)(resource_session_index)
+mcp.resource(
+    "transcripts://session/{session_id}/latest",
+    annotations=_READ_ONLY_HINTS,
+)(resource_session_latest)
+mcp.resource(
+    "transcripts://session/{session_id}/item/{item_id}",
+    annotations=_READ_ONLY_HINTS,
+)(resource_session_item)

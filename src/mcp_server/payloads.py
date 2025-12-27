@@ -7,14 +7,14 @@ def json_payload(payload: dict) -> str:
     return json.dumps(payload, ensure_ascii=False)
 
 
-def build_prompt_payload(
+def _build_prompt_data(
     *,
     name: str,
     item_id: str,
     session_id: str | None,
     prompt: str,
     extra_inputs: dict | None = None,
-) -> str:
+) -> dict:
     inputs: dict = {"item_id": item_id}
     if session_id:
         inputs["session_id"] = session_id
@@ -39,4 +39,48 @@ def build_prompt_payload(
         "prompt": prompt,
         "recommended_steps": steps,
     }
-    return json_payload(payload)
+    return payload
+
+
+def build_prompt_payload(
+    *,
+    name: str,
+    item_id: str,
+    session_id: str | None,
+    prompt: str,
+    extra_inputs: dict | None = None,
+) -> str:
+    return json_payload(
+        _build_prompt_data(
+            name=name,
+            item_id=item_id,
+            session_id=session_id,
+            prompt=prompt,
+            extra_inputs=extra_inputs,
+        )
+    )
+
+
+def build_prompt_text(
+    *,
+    name: str,
+    item_id: str,
+    session_id: str | None,
+    prompt: str,
+    extra_inputs: dict | None = None,
+) -> str:
+    data = _build_prompt_data(
+        name=name,
+        item_id=item_id,
+        session_id=session_id,
+        prompt=prompt,
+        extra_inputs=extra_inputs,
+    )
+    inputs = data["inputs"]
+    input_str = ", ".join(f"{key}={value}" for key, value in inputs.items())
+    steps = "\n".join(f"- {step}" for step in data["recommended_steps"])
+    sections = [data["prompt"]]
+    if input_str:
+        sections.append(f"\nInputs: {input_str}")
+    sections.append(f"\nSteps:\n{steps}")
+    return "\n".join(sections)
