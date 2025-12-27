@@ -1,3 +1,4 @@
+import builtins
 from dataclasses import replace
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -101,6 +102,27 @@ def test_list_items_filters_str_kind_format_and_pinned(tmp_path):
     items = repo.list_items(session_id, kind="transcript", format="txt", pinned=True)
     assert len(items) == 1
     assert items[0].pinned is True
+
+
+def test_list_items_filters_enum_kind(tmp_path):
+    store = SessionStore(tmp_path)
+    repo = ManifestRepository(store, default_ttl_sec=3600)
+    session_id = SessionId("sess_filters_enum")
+
+    target = store.transcripts_dir(session_id) / "sample.txt"
+    target.write_text("data", encoding="utf-8")
+
+    repo.add_item(
+        session_id=session_id,
+        kind=ItemKind.TRANSCRIPT,
+        fmt=TranscriptFormat.TXT,
+        relpath="transcripts/sample.txt",
+        pinned=False,
+        ttl_seconds=3600,
+    )
+
+    items = repo.list_items(session_id, kind=ItemKind.TRANSCRIPT)
+    assert len(items) == 1
 
 
 def test_cleanup_session_handles_invalid_missing_and_updates_size(tmp_path):
@@ -208,6 +230,68 @@ def test_cleanup_session_enforces_max_items(tmp_path):
     remaining = repo.list_items(session_id)
     assert len(remaining) == 1
     assert str(remaining[0].id) == "tr_new"
+
+
+def test_cleanup_session_handles_remove_loop_resolve_error(tmp_path, monkeypatch):
+    store = SessionStore(tmp_path)
+    repo = ManifestRepository(store, default_ttl_sec=3600, max_session_items=1)
+    session_id = SessionId("sess_remove_error")
+
+    first_path = store.transcripts_dir(session_id) / "old.txt"
+    first_path.write_text("old", encoding="utf-8")
+    second_path = store.transcripts_dir(session_id) / "new.txt"
+    second_path.write_text("new", encoding="utf-8")
+
+    item_old = _make_item(
+        item_id="tr_old",
+        relpath="transcripts/old.txt",
+        size=len("old"),
+        pinned=False,
+        expires_at=None,
+    )
+    item_new = _make_item(
+        item_id="tr_new",
+        relpath="transcripts/new.txt",
+        size=len("new"),
+        pinned=False,
+        expires_at=None,
+    )
+    item_old = replace(item_old, created_at="2024-01-01T00:00:00Z")
+    item_new = replace(item_new, created_at="2024-01-01T00:00:01Z")
+
+    manifest = repo.load(session_id)
+    repo.save(replace(manifest, items=[item_old, item_new]))
+
+    calls = {"count": 0}
+    real_resolve = SessionStore.resolve_relpath
+
+    def flaky_resolve(self, sid, relpath):
+        calls["count"] += 1
+        if calls["count"] == 3:
+            raise ValueError("boom")
+        return real_resolve(self, sid, relpath)
+
+    monkeypatch.setattr(SessionStore, "resolve_relpath", flaky_resolve)
+
+    removed = repo.cleanup_session(session_id)
+    assert removed == 1
+    assert len(repo.list_items(session_id)) == 1
+
+
+def test_locked_file_handles_missing_fcntl(tmp_path, monkeypatch):
+    store = SessionStore(tmp_path)
+    repo = ManifestRepository(store, default_ttl_sec=3600, use_lock=True)
+    session_id = SessionId("sess_lock_missing")
+    manifest = repo.load(session_id)
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "fcntl":
+            raise ImportError("missing")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    repo.save(manifest)
 
 
 def test_locked_file_context(tmp_path):

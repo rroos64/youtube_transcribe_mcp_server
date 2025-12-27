@@ -139,3 +139,6 @@ Each step starts by updating tests to match the new structure before changing im
 - Coverage: added manifest repository and session service tests for error branches, cleanup edge cases, lock handling, and input validation.
 - Coverage: added yt-dlp client and transcription service tests for subtitle failures, parsing edge cases, writer outputs, and auto-transcribe validation.
 - Coverage: refined new tests around cleanup limits, session header extraction, and writer mapping to keep coverage suites green.
+- Refactor: centralized session/item id coercion helpers in `domain/types.py` and reused them in store, repo, and session service.
+- Coverage: added tests for enum list filtering, cleanup removal error handling, TTL updates, delete edge cases, symlink escapes, and missing file errors.
+- Coverage: expanded tests for logging field filtering and expired-item mapping; manifest repo cleanup/remove error paths and lock fallback now covered (overall coverage ~98%).

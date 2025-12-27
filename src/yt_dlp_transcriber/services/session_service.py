@@ -7,7 +7,7 @@ from pathlib import Path
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
 from yt_dlp_transcriber.domain.errors import NotFoundError
 from yt_dlp_transcriber.domain.models import ItemKind, ManifestItem, TranscriptFormat
-from yt_dlp_transcriber.domain.types import ItemId, SessionId
+from yt_dlp_transcriber.domain.types import ItemId, SessionId, coerce_item_id, coerce_session_id
 from yt_dlp_transcriber.ports.manifest_repo import ManifestRepositoryPort
 
 
@@ -38,20 +38,6 @@ def _expires_at(ttl_seconds: int) -> str:
     return (datetime.utcnow() + timedelta(seconds=ttl_seconds)).replace(microsecond=0).isoformat() + "Z"
 
 
-def _coerce_session_id(session_id: SessionId | str) -> SessionId:
-    if isinstance(session_id, SessionId):
-        return session_id
-    return SessionId(str(session_id))
-
-
-def _coerce_item_id(item_id: ItemId | str | None) -> ItemId | None:
-    if item_id is None:
-        return None
-    if isinstance(item_id, ItemId):
-        return item_id
-    return ItemId(str(item_id))
-
-
 class SessionService:
     def __init__(self, store: SessionStore, repo: ManifestRepositoryPort) -> None:
         self._store = store
@@ -65,13 +51,13 @@ class SessionService:
         format: TranscriptFormat | str | None = None,
         pinned: bool | None = None,
     ) -> list[ManifestItem]:
-        sid = _coerce_session_id(session_id)
+        sid = coerce_session_id(session_id)
         self._repo.cleanup_session(sid)
         return self._repo.list_items(sid, kind=kind, format=format, pinned=pinned)
 
     def pin_item(self, item_id: ItemId | str, *, session_id: SessionId | str) -> ManifestItem:
-        sid = _coerce_session_id(session_id)
-        target_id = _coerce_item_id(item_id)
+        sid = coerce_session_id(session_id)
+        target_id = coerce_item_id(item_id)
         self._repo.cleanup_session(sid)
         return self._update_item(
             sid,
@@ -80,8 +66,8 @@ class SessionService:
         )
 
     def unpin_item(self, item_id: ItemId | str, *, session_id: SessionId | str) -> ManifestItem:
-        sid = _coerce_session_id(session_id)
-        target_id = _coerce_item_id(item_id)
+        sid = coerce_session_id(session_id)
+        target_id = coerce_item_id(item_id)
         self._repo.cleanup_session(sid)
         return self._update_item(
             sid,
@@ -98,8 +84,8 @@ class SessionService:
     ) -> ManifestItem:
         if ttl_seconds < 1:
             raise ValueError("ttl_seconds must be >= 1")
-        sid = _coerce_session_id(session_id)
-        target_id = _coerce_item_id(item_id)
+        sid = coerce_session_id(session_id)
+        target_id = coerce_item_id(item_id)
         self._repo.cleanup_session(sid)
         return self._update_item(
             sid,
@@ -108,8 +94,8 @@ class SessionService:
         )
 
     def delete_item(self, item_id: ItemId | str, *, session_id: SessionId | str) -> bool:
-        sid = _coerce_session_id(session_id)
-        target_id = _coerce_item_id(item_id)
+        sid = coerce_session_id(session_id)
+        target_id = coerce_item_id(item_id)
         self._repo.cleanup_session(sid)
         manifest = self._repo.load(sid)
         updated_items: list[ManifestItem] = []
@@ -145,7 +131,7 @@ class SessionService:
         if relpath.startswith("/") or ".." in relpath.split("/"):
             raise ValueError("relpath must be a safe relative path")
 
-        sid = _coerce_session_id(session_id)
+        sid = coerce_session_id(session_id)
         self._repo.cleanup_session(sid)
         derived_root = self._store.derived_dir(sid)
         target = (derived_root / relpath).resolve()
@@ -179,8 +165,8 @@ class SessionService:
     ) -> FileInfo:
         if not item_id and not relpath:
             raise ValueError("Provide either item_id or relpath")
-        sid = _coerce_session_id(session_id)
-        target_id = _coerce_item_id(item_id)
+        sid = coerce_session_id(session_id)
+        target_id = coerce_item_id(item_id)
         self._repo.cleanup_session(sid)
         manifest = self._repo.load(sid)
 
@@ -235,8 +221,8 @@ class SessionService:
         if offset < 0:
             raise ValueError("offset must be >= 0")
 
-        sid = _coerce_session_id(session_id)
-        target_id = _coerce_item_id(item_id)
+        sid = coerce_session_id(session_id)
+        target_id = coerce_item_id(item_id)
         self._repo.cleanup_session(sid)
         manifest = self._repo.load(sid)
         item = self._find_item(manifest.items, target_id, relpath)

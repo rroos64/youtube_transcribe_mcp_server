@@ -11,14 +11,8 @@ from typing import Any, Mapping
 
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
 from yt_dlp_transcriber.domain.models import ItemKind, Manifest, ManifestItem, TranscriptFormat
-from yt_dlp_transcriber.domain.types import ItemId, SessionId
+from yt_dlp_transcriber.domain.types import ItemId, SessionId, coerce_session_id
 from yt_dlp_transcriber.ports.clock import ClockPort, SystemClock
-
-
-def _coerce_session_id(session_id: SessionId | str) -> SessionId:
-    if isinstance(session_id, SessionId):
-        return session_id
-    return SessionId(str(session_id))
 
 
 def _now_iso(now: datetime) -> str:
@@ -67,7 +61,7 @@ class ManifestRepository:
         return self._default_ttl_sec
 
     def load(self, session_id: SessionId | str) -> Manifest:
-        sid = _coerce_session_id(session_id)
+        sid = coerce_session_id(session_id)
         path = self._store.manifest_path(sid)
         data: dict[str, Any]
         if path.exists():
@@ -118,7 +112,7 @@ class ManifestRepository:
         pinned: bool,
         ttl_seconds: int,
     ) -> ManifestItem:
-        sid = _coerce_session_id(session_id)
+        sid = coerce_session_id(session_id)
         manifest = self.load(sid)
         item_id = ItemId(f"tr_{uuid.uuid4().hex}")
         now = self._clock.now()
@@ -166,7 +160,7 @@ class ManifestRepository:
         return items
 
     def cleanup_session(self, session_id: SessionId | str) -> int:
-        sid = _coerce_session_id(session_id)
+        sid = coerce_session_id(session_id)
         manifest = self.load(sid)
         kept: list[ManifestItem] = []
         removed = 0

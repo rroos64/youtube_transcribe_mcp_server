@@ -38,3 +38,17 @@ class ItemId:
 
     def __str__(self) -> str:
         return self.value
+
+
+def coerce_session_id(session_id: SessionId | str) -> SessionId:
+    if isinstance(session_id, SessionId):
+        return session_id
+    return SessionId(str(session_id))
+
+
+def coerce_item_id(item_id: ItemId | str | None) -> ItemId | None:
+    if item_id is None:
+        return None
+    if isinstance(item_id, ItemId):
+        return item_id
+    return ItemId(str(item_id))

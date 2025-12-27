@@ -13,3 +13,10 @@ def test_log_emits_without_fields(caplog):
     with caplog.at_level(logging.INFO, logger="yt_dlp_transcriber"):
         logging_utils.log_info("info_event")
     assert any(record.message == "info_event" for record in caplog.records)
+
+
+def test_log_skips_none_fields(caplog):
+    with caplog.at_level(logging.INFO, logger="yt_dlp_transcriber"):
+        logging_utils.log_info("info_event", skip=None, keep="ok")
+    assert any("keep=ok" in record.message for record in caplog.records)
+    assert all("skip=" not in record.message for record in caplog.records)

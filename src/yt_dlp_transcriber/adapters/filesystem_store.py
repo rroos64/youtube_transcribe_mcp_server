@@ -3,17 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from yt_dlp_transcriber.domain.types import SessionId
+from yt_dlp_transcriber.domain.types import SessionId, coerce_session_id
 
 _TRANSCRIPTS_DIR = "transcripts"
 _DERIVED_DIR = "derived"
 _MANIFEST_NAME = "manifest.json"
-
-
-def _coerce_session_id(session_id: SessionId | str) -> SessionId:
-    if isinstance(session_id, SessionId):
-        return session_id
-    return SessionId(str(session_id))
 
 
 def _is_within_root(path: Path, root: Path) -> bool:
@@ -32,7 +26,7 @@ class SessionStore:
         object.__setattr__(self, "data_dir", Path(data_dir))
 
     def session_root(self, session_id: SessionId | str) -> Path:
-        sid = _coerce_session_id(session_id)
+        sid = coerce_session_id(session_id)
         root = self.data_dir / str(sid)
         root.mkdir(parents=True, exist_ok=True)
         (root / _TRANSCRIPTS_DIR).mkdir(parents=True, exist_ok=True)
