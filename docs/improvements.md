@@ -112,6 +112,9 @@ Each step starts by updating tests to match the new structure before changing im
 - Adding a new format (e.g., `md`) only touches writer strategy + enum.
 - Unit tests no longer need to unwrap FastMCP tool decorators.
 - Core services are isolated from FastMCP and subprocess details.
+- Test coverage is above 95%.
+- All tests pass.
+- Documentation is up to date.
 
 ## Refactor Progress
 - Step 1 (Config object): added `src/yt_dlp_transcriber/config.py` with `AppConfig`, updated `src/yt_dlp_transcriber/server.py` to use `APP_CONFIG`, and added `tests/test_config.py` with minimal fixture updates.
@@ -142,3 +145,5 @@ Each step starts by updating tests to match the new structure before changing im
 - Refactor: centralized session/item id coercion helpers in `domain/types.py` and reused them in store, repo, and session service.
 - Coverage: added tests for enum list filtering, cleanup removal error handling, TTL updates, delete edge cases, symlink escapes, and missing file errors.
 - Coverage: expanded tests for logging field filtering and expired-item mapping; manifest repo cleanup/remove error paths and lock fallback now covered (overall coverage ~98%).
+- Refactor (tests): added time parsing tests and updated resource/manifest tests to use shared time parsing helper.
+- Refactor: added `domain/time_utils.py` and replaced duplicated timestamp parsing in manifest repo and MCP resources.

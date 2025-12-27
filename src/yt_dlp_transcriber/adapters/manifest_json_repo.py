@@ -11,6 +11,7 @@ from typing import Any, Mapping
 
 from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
 from yt_dlp_transcriber.domain.models import ItemKind, Manifest, ManifestItem, TranscriptFormat
+from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
 from yt_dlp_transcriber.domain.types import ItemId, SessionId, coerce_session_id
 from yt_dlp_transcriber.ports.clock import ClockPort, SystemClock
 
@@ -23,18 +24,8 @@ def _expires_at(ttl_seconds: int, now: datetime) -> str:
     return (now + timedelta(seconds=ttl_seconds)).replace(microsecond=0).isoformat() + "Z"
 
 
-def _parse_ts(ts: str | None) -> datetime | None:
-    if not ts:
-        return None
-    try:
-        raw = ts[:-1] if ts.endswith("Z") else ts
-        return datetime.fromisoformat(raw)
-    except ValueError:
-        return None
-
-
 def _item_sort_key(item: ManifestItem) -> tuple[datetime, str]:
-    ts = _parse_ts(item.created_at) or datetime.min
+    ts = parse_iso_timestamp(item.created_at) or datetime.min
     return ts, str(item.id)
 
 
@@ -185,13 +176,13 @@ class ManifestRepository:
 
             updated = item
             expires_at = item.expires_at
-            expires_dt = _parse_ts(expires_at)
+            expires_dt = parse_iso_timestamp(expires_at)
 
             if not item.pinned:
                 if expires_dt is None:
                     expires_at = _expires_at(self._default_ttl_sec, now=now)
                     updated = replace(updated, expires_at=expires_at)
-                    expires_dt = _parse_ts(expires_at)
+                    expires_dt = parse_iso_timestamp(expires_at)
                     changed = True
 
                 if expires_dt and now >= expires_dt:

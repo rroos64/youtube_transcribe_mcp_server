@@ -9,9 +9,9 @@ from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
 from yt_dlp_transcriber.adapters.manifest_json_repo import (
     ManifestRepository,
     _item_sort_key,
-    _parse_ts,
 )
 from yt_dlp_transcriber.domain.models import ItemKind, ManifestItem, TranscriptFormat
+from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
 from yt_dlp_transcriber.domain.types import ItemId, SessionId
 
 
@@ -304,7 +304,7 @@ def test_locked_file_context(tmp_path):
 
 
 def test_parse_ts_and_sort_key():
-    assert _parse_ts("not-a-date") is None
+    assert parse_iso_timestamp("not-a-date") is None
     item = _make_item(item_id="tr_sort", relpath="transcripts/a.txt", size=1, pinned=False, expires_at=None)
     key = _item_sort_key(item)
     assert isinstance(key[0], datetime)

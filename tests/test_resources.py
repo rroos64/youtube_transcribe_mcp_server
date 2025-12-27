@@ -5,9 +5,10 @@ from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
 from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
 from yt_dlp_transcriber.config import AppConfig
 from yt_dlp_transcriber.domain.models import ItemKind, TranscriptFormat
+from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
 from yt_dlp_transcriber.domain.types import SessionId
 from yt_dlp_transcriber.mcp.deps import build_services, set_services
-from yt_dlp_transcriber.mcp.resources import _parse_ts, resource_session_item, resource_session_latest
+from yt_dlp_transcriber.mcp.resources import resource_session_item, resource_session_latest
 from yt_dlp_transcriber.mcp.templates import template_summary
 from yt_dlp_transcriber.services.session_service import SessionService
 
@@ -162,4 +163,4 @@ def test_resource_session_latest_returns_newest_item(tmp_path):
 
 
 def test_parse_ts_returns_none_on_invalid():
-    assert _parse_ts("not-a-date") is None
+    assert parse_iso_timestamp("not-a-date") is None

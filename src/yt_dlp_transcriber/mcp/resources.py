@@ -8,6 +8,7 @@ from dataclasses import replace
 
 from yt_dlp_transcriber.domain.errors import NotFoundError
 from yt_dlp_transcriber.domain.models import ItemKind
+from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
 
 from .app import mcp
 from .deps import get_services
@@ -16,18 +17,8 @@ from yt_dlp_transcriber.logging_utils import log_event, log_warning
 from .session import get_session_id
 
 
-def _parse_ts(ts: str | None) -> datetime | None:
-    if not ts:
-        return None
-    try:
-        raw = ts[:-1] if ts.endswith("Z") else ts
-        return datetime.fromisoformat(raw)
-    except ValueError:
-        return None
-
-
 def _item_sort_key(item) -> tuple[datetime, str]:
-    ts = _parse_ts(item.created_at) or datetime.min
+    ts = parse_iso_timestamp(item.created_at) or datetime.min
     return ts, str(item.id)
 
 
