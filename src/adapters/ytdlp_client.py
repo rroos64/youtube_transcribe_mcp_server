@@ -11,7 +11,7 @@ from typing import Callable, Iterator
 
 from config import AppConfig
 from domain.errors import ExternalCommandError
-from logging_utils import log_debug, log_error
+from logging_utils import log_debug, log_error, log_warning
 
 
 @dataclass(frozen=True)
@@ -138,15 +138,18 @@ class YtDlpClient:
                 timeout=self._config.timeout_sec,
             )
 
-            if proc.returncode != 0:
-                log_error("ytdlp_subtitles_failed", url=url, code=proc.returncode)
-                raise ExternalCommandError(
-                    f"yt-dlp failed (code {proc.returncode}). Output:\n{proc.stdout}"
-                )
-
             vtts = sorted(workdir.glob("*.en.vtt"))
             if not vtts:
                 vtts = sorted(workdir.glob("*.vtt"))
+
+            if proc.returncode != 0:
+                if not vtts:
+                    log_error("ytdlp_subtitles_failed", url=url, code=proc.returncode)
+                    raise ExternalCommandError(
+                        f"yt-dlp failed (code {proc.returncode}). Output:\n{proc.stdout}"
+                    )
+                log_warning("ytdlp_subtitles_partial_success", url=url, code=proc.returncode)
+
             if not vtts:
                 log_error("ytdlp_subtitles_missing", url=url)
                 raise ExternalCommandError(f"No subtitle files were produced. yt-dlp output:\n{proc.stdout}")

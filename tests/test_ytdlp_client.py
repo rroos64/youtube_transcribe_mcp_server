@@ -120,6 +120,21 @@ def test_ytdlp_client_get_subtitles_success():
     assert "--write-auto-subs" in captured["cmd"]
 
 
+def test_ytdlp_client_get_subtitles_nonzero_with_files():
+    config = AppConfig.from_env({"YTDLP_TIMEOUT_SEC": "5"})
+
+    def fake_run(cmd, **kwargs):
+        workdir = Path(kwargs["cwd"])
+        (workdir / "video.en.vtt").write_text("WEBVTT\\n\\nHello", encoding="utf-8")
+        return CompletedProcess(cmd, 1, stdout="partial")
+
+    client = YtDlpClient(config, runner=fake_run)
+    subs = client.get_subtitles("https://youtube.com/watch?v=abc")
+
+    assert subs.picked_file == "video.en.vtt"
+    assert "Hello" in subs.vtt_text
+
+
 def test_ytdlp_client_get_subtitles_missing_files(tmp_path):
     config = AppConfig.from_env({"YTDLP_TIMEOUT_SEC": "5"})
 

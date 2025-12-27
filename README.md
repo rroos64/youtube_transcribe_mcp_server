@@ -818,6 +818,10 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("yt_dlp_transcriber").setLevel(logging.DEBUG)
 ```
 
+Logs are also written to `logs.txt` inside `DATA_DIR`. On each server restart,
+the previous log file is archived with a UTC timestamp and a new `logs.txt` is
+created.
+
 ## Contributing
 
 Thanks for the interest. To keep the project focused, please open an issue
