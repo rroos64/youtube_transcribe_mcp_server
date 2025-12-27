@@ -1,15 +1,15 @@
 import pytest
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
-from yt_dlp_transcriber.domain.errors import (
+from adapters.filesystem_store import SessionStore
+from adapters.manifest_json_repo import ManifestRepository
+from domain.errors import (
     ExternalCommandError,
     InvalidItemId,
     InvalidSessionId,
     NotFoundError,
 )
-from yt_dlp_transcriber.domain.types import ItemId, SessionId
-from yt_dlp_transcriber.services.session_service import SessionService
+from domain.types import ItemId, SessionId
+from services.session_service import SessionService
 
 
 def test_error_hierarchy():

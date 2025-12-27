@@ -4,11 +4,11 @@ from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.domain.errors import NotFoundError
-from yt_dlp_transcriber.domain.models import ItemKind, ManifestItem, TranscriptFormat
-from yt_dlp_transcriber.domain.types import ItemId, SessionId, coerce_item_id, coerce_session_id
-from yt_dlp_transcriber.ports.manifest_repo import ManifestRepositoryPort
+from adapters.filesystem_store import SessionStore
+from domain.errors import NotFoundError
+from domain.models import ItemKind, ManifestItem, TranscriptFormat
+from domain.types import ItemId, SessionId, coerce_item_id, coerce_session_id
+from ports.manifest_repo import ManifestRepositoryPort
 
 
 @dataclass(frozen=True)

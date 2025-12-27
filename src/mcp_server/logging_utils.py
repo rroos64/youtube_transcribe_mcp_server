@@ -1,4 +1,4 @@
-from yt_dlp_transcriber.logging_utils import (
+from logging_utils import (
     log_debug,
     log_error,
     log_event,

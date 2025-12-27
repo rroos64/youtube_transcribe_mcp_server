@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "custom-youtube-transcribe-mcp-server"
+version = "0.1.0"
+description = "FastMCP server that transcribes YouTube subtitles via yt-dlp."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["fastmcp>=2.0.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0.0", "coverage>=7.0.0"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["config", "server", "logging_utils"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

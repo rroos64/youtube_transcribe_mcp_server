@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from yt_dlp_transcriber.domain.models import ItemKind, Manifest, ManifestItem, TranscriptFormat
-from yt_dlp_transcriber.domain.types import SessionId
+from domain.models import ItemKind, Manifest, ManifestItem, TranscriptFormat
+from domain.types import SessionId
 
 
 class ManifestRepositoryPort(Protocol):

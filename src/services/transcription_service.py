@@ -8,11 +8,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Mapping, Protocol
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.ports.manifest_repo import ManifestRepositoryPort
-from yt_dlp_transcriber.ports.transcriber import TranscriberPort
-from yt_dlp_transcriber.domain.models import ItemKind, ManifestItem, TranscriptFormat
-from yt_dlp_transcriber.domain.types import SessionId
+from adapters.filesystem_store import SessionStore
+from ports.manifest_repo import ManifestRepositoryPort
+from ports.transcriber import TranscriberPort
+from domain.models import ItemKind, ManifestItem, TranscriptFormat
+from domain.types import SessionId
 
 
 class TranscriptParser:

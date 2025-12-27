@@ -2,10 +2,10 @@ from dataclasses import replace
 from datetime import datetime, timedelta
 import os
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
-from yt_dlp_transcriber.domain.models import ItemKind, TranscriptFormat
-from yt_dlp_transcriber.domain.types import SessionId
+from adapters.filesystem_store import SessionStore
+from adapters.manifest_json_repo import ManifestRepository
+from domain.models import ItemKind, TranscriptFormat
+from domain.types import SessionId
 
 
 def test_repo_add_and_list(tmp_path):

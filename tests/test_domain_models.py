@@ -1,7 +1,7 @@
 import pytest
 
-from yt_dlp_transcriber.domain.models import ItemKind, Manifest, ManifestItem, TranscriptFormat
-from yt_dlp_transcriber.domain.types import ItemId, SessionId, _validate_id
+from domain.models import ItemKind, Manifest, ManifestItem, TranscriptFormat
+from domain.types import ItemId, SessionId, _validate_id
 
 
 def test_session_id_validation():

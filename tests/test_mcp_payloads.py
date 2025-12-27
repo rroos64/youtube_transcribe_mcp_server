@@ -1,6 +1,6 @@
 import json
 
-from yt_dlp_transcriber.mcp.payloads import build_prompt_payload, json_payload
+from mcp_server.payloads import build_prompt_payload, json_payload
 
 
 def test_json_payload_round_trip():

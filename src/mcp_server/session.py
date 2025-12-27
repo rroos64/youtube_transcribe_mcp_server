@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from yt_dlp_transcriber.domain.types import SessionId
+from domain.types import SessionId
 
 
 def extract_session_id(ctx: Any | None) -> str | None:

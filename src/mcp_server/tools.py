@@ -3,13 +3,13 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from yt_dlp_transcriber.domain.models import ManifestItem, TranscriptFormat
+from domain.models import ManifestItem, TranscriptFormat
 
 from .app import mcp
 from .deps import get_services
 from .error_handling import handle_mcp_errors
 from .session import get_session_id
-from yt_dlp_transcriber.logging_utils import log_debug, log_event, log_warning
+from logging_utils import log_debug, log_event, log_warning
 
 _YT_URL_RE = re.compile(r"^https?://(www\.)?youtube\.com/watch\?v=|^https?://youtu\.be/")
 

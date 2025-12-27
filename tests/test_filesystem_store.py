@@ -1,7 +1,7 @@
 import pytest
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.domain.types import SessionId
+from adapters.filesystem_store import SessionStore
+from domain.types import SessionId
 
 
 def test_session_store_creates_dirs(tmp_path):

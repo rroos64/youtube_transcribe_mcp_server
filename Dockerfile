@@ -20,4 +20,4 @@ ENV DEFAULT_SESSION_ID=default
 ENV PYTHONPATH=/app/src
 EXPOSE 8080
 
-CMD ["python", "-m", "yt_dlp_transcriber.server"]
+CMD ["python", "-m", "server"]

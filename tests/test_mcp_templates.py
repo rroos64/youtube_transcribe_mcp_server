@@ -1,6 +1,6 @@
 import json
 
-from yt_dlp_transcriber.mcp.templates import (
+from mcp_server.templates import (
     template_action_items,
     template_faq,
     template_glossary,

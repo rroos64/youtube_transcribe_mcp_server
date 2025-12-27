@@ -2,20 +2,20 @@ import json
 import pytest
 from dataclasses import replace
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
-from yt_dlp_transcriber.config import AppConfig
-from yt_dlp_transcriber.domain.models import ItemKind, TranscriptFormat
-from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
-from yt_dlp_transcriber.domain.types import SessionId
-from yt_dlp_transcriber.mcp.deps import build_services, set_services
-from yt_dlp_transcriber.mcp.resources import (
+from adapters.filesystem_store import SessionStore
+from adapters.manifest_json_repo import ManifestRepository
+from config import AppConfig
+from domain.models import ItemKind, TranscriptFormat
+from domain.time_utils import parse_iso_timestamp
+from domain.types import SessionId
+from mcp_server.deps import build_services, set_services
+from mcp_server.resources import (
     resource_session_index,
     resource_session_item,
     resource_session_latest,
 )
-from yt_dlp_transcriber.mcp.templates import template_summary
-from yt_dlp_transcriber.services.session_service import SessionService
+from mcp_server.templates import template_summary
+from services.session_service import SessionService
 
 
 def _make_services(tmp_path):

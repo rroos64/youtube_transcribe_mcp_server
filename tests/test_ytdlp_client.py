@@ -4,9 +4,9 @@ from subprocess import CompletedProcess
 
 import pytest
 
-from yt_dlp_transcriber.adapters.ytdlp_client import YtDlpClient
-from yt_dlp_transcriber.config import AppConfig
-from yt_dlp_transcriber.domain.errors import ExternalCommandError
+from adapters.ytdlp_client import YtDlpClient
+from config import AppConfig
+from domain.errors import ExternalCommandError
 
 
 def test_ytdlp_client_get_info_parses_json():

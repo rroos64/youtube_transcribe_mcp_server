@@ -14,7 +14,7 @@ install: venv
 
 run: install
 	mkdir -p $(DATA_DIR)
-	DATA_DIR=$(DATA_DIR) PORT=$(PORT) PYTHONPATH=src $(VENV)/bin/python -m yt_dlp_transcriber.server
+	DATA_DIR=$(DATA_DIR) PORT=$(PORT) PYTHONPATH=src $(VENV)/bin/python -m server
 
 test: install
 	$(VENV)/bin/pip install -r requirements-dev.txt

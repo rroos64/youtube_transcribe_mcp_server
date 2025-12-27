@@ -1,4 +1,4 @@
-from yt_dlp_transcriber.mcp.deps import build_services, get_services, set_services
+from mcp_server.deps import build_services, get_services, set_services
 
 
 def test_build_services_default_config():

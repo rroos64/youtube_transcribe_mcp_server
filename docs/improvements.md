@@ -1,10 +1,10 @@
 # SOLID + OOP Improvements Plan
 
 ## Current State (Quick Analysis)
-- `src/yt_dlp_transcriber/server.py` is a single module handling config, yt-dlp subprocesses, transcript parsing, storage/manifest IO, cleanup policy, FastMCP tool wiring, resources, and templates.
-- Global state (`DATA_DIR`, limits, TTL, env config) is read at import time and shared across all tools.
-- File/manifest operations are intertwined with MCP handlers, which makes unit testing rely on monkeypatching.
-- Duplicate session preamble logic (`_get_session_id` + `_cleanup_session`) appears across tools.
+- `src/server.py` is a thin composition root that wires MCP modules.
+- Config/env parsing lives in `src/config.py` and services/adapters own the core logic.
+- File/manifest operations are isolated behind adapters/services, keeping MCP handlers thin.
+- Session id parsing is centralized in `src/mcp_server/session.py` instead of duplicated across tools.
 
 ## Goals (SOLID Focus)
 - SRP: separate config, storage, transcription, and MCP wiring.
@@ -38,8 +38,8 @@ Source layout (ports/adapters + application core under `src/`):
   - `ytdlp_client.py` (subprocess adapter)
   - `filesystem_store.py` (path safety + IO)
   - `manifest_json_repo.py` (JSON-backed repository)
-- `src/mcp/` (presentation layer)
-  - `server.py` (FastMCP instance + registration)
+- `src/mcp_server/` (presentation layer)
+  - `app.py` (FastMCP instance + registration)
   - `tools.py`
   - `resources.py`
   - `templates.py`
@@ -84,7 +84,7 @@ Each step starts by updating tests to match the new structure before changing im
    - Services accept `SessionId` and return `ManifestItem` models.
 
 6. **MCP wiring**
-   - Update tests that exercise MCP tools/resources to import from `src/mcp/*`.
+   - Update tests that exercise MCP tools/resources to import from `src/mcp_server/*`.
    - Tools become thin adapters that resolve `session_id` then call services.
    - Resources/templates build payloads from service output only.
 
@@ -117,24 +117,24 @@ Each step starts by updating tests to match the new structure before changing im
 - Documentation is up to date.
 
 ## Refactor Progress
-- Step 1 (Config object): added `src/yt_dlp_transcriber/config.py` with `AppConfig`, updated `src/yt_dlp_transcriber/server.py` to use `APP_CONFIG`, and added `tests/test_config.py` with minimal fixture updates.
-- Step 2 (Domain models): added `src/yt_dlp_transcriber/domain/models.py` + `src/yt_dlp_transcriber/domain/types.py` with enums/value objects/dataclasses, plus `tests/test_domain_models.py`.
-- Step 3 (Storage layer): added `src/yt_dlp_transcriber/adapters/filesystem_store.py` + `src/yt_dlp_transcriber/adapters/manifest_json_repo.py` with tests in `tests/test_filesystem_store.py` and `tests/test_manifest_repo.py`.
-- Step 4 (Transcription layer): added `src/yt_dlp_transcriber/adapters/ytdlp_client.py` and `src/yt_dlp_transcriber/services/transcription_service.py` with tests in `tests/test_ytdlp_client.py` and `tests/test_transcription_service.py`.
-- Step 5 (Service layer): added `src/yt_dlp_transcriber/services/session_service.py`, updated `src/yt_dlp_transcriber/services/transcription_service.py`, and aligned tests in `tests/test_manifest.py`, `tests/test_resources.py`, and `tests/test_transcription_service.py`.
-- Step 6 (MCP wiring): added `src/yt_dlp_transcriber/mcp/` modules (app/tools/resources/templates/deps/session), rewired `src/yt_dlp_transcriber/server.py`, and aligned MCP-related tests.
+- Step 1 (Config object): added `src/config.py` with `AppConfig`, updated `src/server.py` to use `APP_CONFIG`, and added `tests/test_config.py` with minimal fixture updates.
+- Step 2 (Domain models): added `src/domain/models.py` + `src/domain/types.py` with enums/value objects/dataclasses, plus `tests/test_domain_models.py`.
+- Step 3 (Storage layer): added `src/adapters/filesystem_store.py` + `src/adapters/manifest_json_repo.py` with tests in `tests/test_filesystem_store.py` and `tests/test_manifest_repo.py`.
+- Step 4 (Transcription layer): added `src/adapters/ytdlp_client.py` and `src/services/transcription_service.py` with tests in `tests/test_ytdlp_client.py` and `tests/test_transcription_service.py`.
+- Step 5 (Service layer): added `src/services/session_service.py`, updated `src/services/transcription_service.py`, and aligned tests in `tests/test_manifest.py`, `tests/test_resources.py`, and `tests/test_transcription_service.py`.
+- Step 6 (MCP wiring): added `src/mcp_server/` modules (app/tools/resources/templates/deps/session), rewired `src/server.py`, and aligned MCP-related tests.
 - Tests: removed unused `tests/conftest.py` fixture that imported the FastMCP server, so unit tests no longer require `fastmcp` at import time.
-- Tests: added a lightweight `FastMCP` stub fallback in `src/yt_dlp_transcriber/mcp/app.py` so importing MCP modules works without `fastmcp` installed.
+- Tests: added a lightweight `FastMCP` stub fallback in `src/mcp_server/app.py` so importing MCP modules works without `fastmcp` installed.
 - Tests: added `pytest.ini` with `pythonpath = src` so `pytest` works without manually exporting `PYTHONPATH`.
 - MCP: registered resources/templates via explicit `mcp.resource(...)(func)` calls to keep the exported functions callable even when FastMCP returns template objects.
 - Step 7 (Documentation refresh): updated `README.md` testing instructions and repository layout to match the new module structure.
 - Optional enhancement: `ManifestRepository.save` now writes via temp file + `os.replace` (tested in `tests/test_manifest_repo.py`) to make manifest writes atomic.
-- Optional enhancement (errors): added `src/yt_dlp_transcriber/domain/errors.py`, wired typed errors through ids, services, resources, and yt-dlp adapter, with tests in `tests/test_errors.py` and `tests/test_ytdlp_client.py`.
-- Optional enhancement (caching): added `YTDLP_INFO_CACHE_TTL_SEC` config and in-memory caching in `src/yt_dlp_transcriber/adapters/ytdlp_client.py`, with tests in `tests/test_ytdlp_client.py` and `tests/test_config.py`.
-- Ports: added `src/yt_dlp_transcriber/ports/` protocols and updated services to depend on ports for manifest repositories and transcribers.
-- Clock port: added `src/yt_dlp_transcriber/ports/clock.py` and wired `ManifestRepository` to use an injected clock for timestamps, with tests in `tests/test_manifest_repo.py`.
+- Optional enhancement (errors): added `src/domain/errors.py`, wired typed errors through ids, services, resources, and yt-dlp adapter, with tests in `tests/test_errors.py` and `tests/test_ytdlp_client.py`.
+- Optional enhancement (caching): added `YTDLP_INFO_CACHE_TTL_SEC` config and in-memory caching in `src/adapters/ytdlp_client.py`, with tests in `tests/test_ytdlp_client.py` and `tests/test_config.py`.
+- Ports: added `src/ports/` protocols and updated services to depend on ports for manifest repositories and transcribers.
+- Clock port: added `src/ports/clock.py` and wired `ManifestRepository` to use an injected clock for timestamps, with tests in `tests/test_manifest_repo.py`.
 - Logging: added lightweight structured logging helper and log events across debug/info/warning/error in MCP tools/resources and yt-dlp adapter.
-- MCP error mapping: added `src/yt_dlp_transcriber/mcp/error_handling.py` and wired tools/resources/templates to map typed errors to user-friendly exceptions, with tests in `tests/test_mcp_error_mapping.py`.
+- MCP error mapping: added `src/mcp_server/error_handling.py` and wired tools/resources/templates to map typed errors to user-friendly exceptions, with tests in `tests/test_mcp_error_mapping.py`.
 - Documentation: updated README examples to note yt-dlp metadata caching and added logging guidance.
 - MCP errors: added explicit error codes (`ERR_INVALID_SESSION`, `ERR_INVALID_ITEM`, `ERR_NOT_FOUND`, `ERR_EXPIRED_ITEM`, `ERR_EXTERNAL_COMMAND`) in mapped exceptions and documented them in README.
 - Documentation: added coverage commands to README and added `coverage` to dev requirements.
@@ -154,3 +154,7 @@ Each step starts by updating tests to match the new structure before changing im
 - Tests: added coverage for MCP templates (reflow/quotes/faq/glossary/action-items) to exercise prompt payloads.
 - Refactor: extracted MCP template rendering helper to centralize session/item decoding and payload assembly.
 - Documentation: added Mermaid class diagrams for domain model and service/adapters in README.
+- Layout: migrated to a flat `src/` root, updated imports, and aligned Makefile/Dockerfile/README entrypoints.
+- Tooling: added `pyproject.toml` metadata for packaging/metadata consistency.
+- Logging: added per-request id context to structured logs, propagated through MCP handlers.
+- Tests: added `tests/test_mcp_wiring.py` to exercise MCP tool/resource wiring in the flat layout.

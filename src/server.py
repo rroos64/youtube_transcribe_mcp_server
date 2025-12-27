@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import os
 
-from yt_dlp_transcriber.mcp.app import mcp
-from yt_dlp_transcriber.mcp import resources as _resources
-from yt_dlp_transcriber.mcp import templates as _templates
-from yt_dlp_transcriber.mcp import tools as _tools
+from mcp_server.app import mcp
+from mcp_server import resources as _resources
+from mcp_server import templates as _templates
+from mcp_server import tools as _tools
 
 __all__ = ["mcp"]
 

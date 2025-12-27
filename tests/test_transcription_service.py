@@ -1,11 +1,11 @@
 import pytest
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
-from yt_dlp_transcriber.adapters.ytdlp_client import YtDlpSubtitles
-from yt_dlp_transcriber.domain.models import ItemKind, TranscriptFormat
-from yt_dlp_transcriber.domain.types import SessionId
-from yt_dlp_transcriber.services.transcription_service import (
+from adapters.filesystem_store import SessionStore
+from adapters.manifest_json_repo import ManifestRepository
+from adapters.ytdlp_client import YtDlpSubtitles
+from domain.models import ItemKind, TranscriptFormat
+from domain.types import SessionId
+from services.transcription_service import (
     JsonlWriter,
     TranscriptParser,
     TranscriptionService,

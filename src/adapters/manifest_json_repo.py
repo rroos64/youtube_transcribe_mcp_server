@@ -9,11 +9,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Mapping
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.domain.models import ItemKind, Manifest, ManifestItem, TranscriptFormat
-from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
-from yt_dlp_transcriber.domain.types import ItemId, SessionId, coerce_session_id
-from yt_dlp_transcriber.ports.clock import ClockPort, SystemClock
+from adapters.filesystem_store import SessionStore
+from domain.models import ItemKind, Manifest, ManifestItem, TranscriptFormat
+from domain.time_utils import parse_iso_timestamp
+from domain.types import ItemId, SessionId, coerce_session_id
+from ports.clock import ClockPort, SystemClock
 
 
 def _now_iso(now: datetime) -> str:

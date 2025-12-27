@@ -2,12 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
-from yt_dlp_transcriber.domain.errors import NotFoundError
-from yt_dlp_transcriber.domain.models import ItemKind, TranscriptFormat
-from yt_dlp_transcriber.domain.types import SessionId
-from yt_dlp_transcriber.services.session_service import SessionService
+from adapters.filesystem_store import SessionStore
+from adapters.manifest_json_repo import ManifestRepository
+from domain.errors import NotFoundError
+from domain.models import ItemKind, TranscriptFormat
+from domain.types import SessionId
+from services.session_service import SessionService
 
 
 def test_set_item_ttl_rejects_non_positive(tmp_path):

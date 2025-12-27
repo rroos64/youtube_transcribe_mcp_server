@@ -5,15 +5,15 @@ from datetime import datetime
 from typing import Any
 from dataclasses import replace
 
-from yt_dlp_transcriber.domain.errors import NotFoundError
-from yt_dlp_transcriber.domain.models import ItemKind
-from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
+from domain.errors import NotFoundError
+from domain.models import ItemKind
+from domain.time_utils import parse_iso_timestamp
 
 from .app import mcp
 from .deps import get_services
 from .error_handling import handle_mcp_errors
 from .payloads import json_payload
-from yt_dlp_transcriber.logging_utils import log_event, log_warning
+from logging_utils import log_event, log_warning
 from .session import get_session_id
 
 

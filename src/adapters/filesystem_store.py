@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from yt_dlp_transcriber.domain.types import SessionId, coerce_session_id
+from domain.types import SessionId, coerce_session_id
 
 _TRANSCRIPTS_DIR = "transcripts"
 _DERIVED_DIR = "derived"

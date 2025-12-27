@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from yt_dlp_transcriber.config import AppConfig
+from config import AppConfig
 
 
 def test_config_defaults():

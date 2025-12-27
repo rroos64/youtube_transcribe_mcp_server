@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
+from domain.time_utils import parse_iso_timestamp
 
 
 def test_parse_iso_timestamp_handles_none_and_invalid():

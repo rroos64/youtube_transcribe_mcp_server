@@ -1,13 +1,13 @@
 import pytest
 
-from yt_dlp_transcriber.domain.errors import (
+from domain.errors import (
     ExternalCommandError,
     ExpiredItemError,
     InvalidItemId,
     InvalidSessionId,
     NotFoundError,
 )
-from yt_dlp_transcriber.mcp.error_handling import handle_mcp_errors
+from mcp_server.error_handling import handle_mcp_errors
 
 
 @handle_mcp_errors

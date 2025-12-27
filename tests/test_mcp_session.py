@@ -1,6 +1,6 @@
 import pytest
 
-from yt_dlp_transcriber.mcp.session import extract_session_id, get_session_id
+from mcp_server.session import extract_session_id, get_session_id
 
 
 class DummyHeaders:

@@ -1,6 +1,11 @@
 try:
     from fastmcp import FastMCP
-except ModuleNotFoundError:
+except ModuleNotFoundError as exc:
+    if exc.name not in (None, "fastmcp") and str(exc) != "fastmcp":
+        raise
+
+    _fastmcp_import_error = exc
+
     class FastMCP:  # type: ignore[override]
         def __init__(self, *_args, **_kwargs) -> None:
             pass
@@ -14,7 +19,10 @@ except ModuleNotFoundError:
             return lambda f: f
 
         def run(self, *args, **kwargs) -> None:  # pragma: no cover
-            raise RuntimeError("fastmcp is required to run the server")
+            raise RuntimeError(
+                "fastmcp is required to run the server. Install it with "
+                "`pip install -r requirements.txt`."
+            ) from _fastmcp_import_error
 
 
 # FastMCP v2.14.x uses `stateless_http` (not `stateless`)

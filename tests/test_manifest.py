@@ -1,11 +1,11 @@
 from dataclasses import replace
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
-from yt_dlp_transcriber.domain.models import ItemKind, TranscriptFormat
-from yt_dlp_transcriber.domain.types import SessionId
-from yt_dlp_transcriber.mcp.session import get_session_id
-from yt_dlp_transcriber.services.session_service import SessionService
+from adapters.filesystem_store import SessionStore
+from adapters.manifest_json_repo import ManifestRepository
+from domain.models import ItemKind, TranscriptFormat
+from domain.types import SessionId
+from mcp_server.session import get_session_id
+from services.session_service import SessionService
 
 
 def test_add_item_and_list(tmp_path):

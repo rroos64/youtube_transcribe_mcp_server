@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.adapters.manifest_json_repo import ManifestRepository
-from yt_dlp_transcriber.adapters.ytdlp_client import YtDlpClient
-from yt_dlp_transcriber.config import AppConfig
-from yt_dlp_transcriber.services.session_service import SessionService
-from yt_dlp_transcriber.services.transcription_service import TranscriptParser, TranscriptionService
+from adapters.filesystem_store import SessionStore
+from adapters.manifest_json_repo import ManifestRepository
+from adapters.ytdlp_client import YtDlpClient
+from config import AppConfig
+from services.session_service import SessionService
+from services.transcription_service import TranscriptParser, TranscriptionService
 
 
 @dataclass(frozen=True)

@@ -676,7 +676,7 @@ pip install -r requirements.txt
 export PORT=8080
 export DATA_DIR=/tmp/yt-transcripts
 mkdir -p "$DATA_DIR"
-PYTHONPATH=src python -m yt_dlp_transcriber.server
+PYTHONPATH=src python -m server
 ```
 
 The MCP HTTP endpoint listens at:
@@ -789,8 +789,9 @@ sequenceDiagram
 ## Logging
 
 The server emits structured logs via the `yt_dlp_transcriber` logger at debug,
-info, warning, and error levels. Configure logging in the hosting process to
-see the details:
+info, warning, and error levels. Entries include a per-request `request_id` and
+`session_id` where available. Configure logging in the hosting process to see
+the details:
 
 ```python
 import logging
@@ -801,13 +802,14 @@ logging.getLogger("yt_dlp_transcriber").setLevel(logging.DEBUG)
 
 ## Repository layout
 
-- `src/yt_dlp_transcriber/server.py`: thin composition root that starts FastMCP.
-- `src/yt_dlp_transcriber/mcp/`: FastMCP wiring (tools/resources/templates/deps).
-- `src/yt_dlp_transcriber/services/`: application services for transcription and sessions.
-- `src/yt_dlp_transcriber/adapters/`: filesystem + yt-dlp adapters.
-- `src/yt_dlp_transcriber/ports/`: protocols for repositories and transcribers.
-- `src/yt_dlp_transcriber/domain/`: domain models, enums, and value objects.
-- `src/yt_dlp_transcriber/__init__.py`: package marker.
+- `src/server.py`: thin composition root that starts FastMCP.
+- `src/mcp_server/`: FastMCP wiring (tools/resources/templates/deps).
+- `src/services/`: application services for transcription and sessions.
+- `src/adapters/`: filesystem + yt-dlp adapters.
+- `src/ports/`: protocols for repositories and transcribers.
+- `src/domain/`: domain models, enums, and value objects.
+- `src/config.py`: AppConfig and env parsing.
+- `src/logging_utils.py`: structured logging helper.
 - `tests`: unit tests for domain, storage, services, and MCP resources/templates.
 - `requirements.txt`: runtime dependencies.
 - `requirements-dev.txt`: test dependencies.

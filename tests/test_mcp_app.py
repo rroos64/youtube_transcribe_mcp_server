@@ -4,7 +4,7 @@ from pathlib import Path
 
 
 def test_app_fallback_when_fastmcp_missing(monkeypatch):
-    app_path = Path(__file__).resolve().parents[1] / "src/yt_dlp_transcriber/mcp/app.py"
+    app_path = Path(__file__).resolve().parents[1] / "src/mcp_server/app.py"
     real_import = builtins.__import__
 
     def fake_import(name, globals=None, locals=None, fromlist=(), level=0):

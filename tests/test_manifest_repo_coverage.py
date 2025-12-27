@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from yt_dlp_transcriber.adapters.filesystem_store import SessionStore
-from yt_dlp_transcriber.adapters.manifest_json_repo import (
+from adapters.filesystem_store import SessionStore
+from adapters.manifest_json_repo import (
     ManifestRepository,
     _item_sort_key,
 )
-from yt_dlp_transcriber.domain.models import ItemKind, ManifestItem, TranscriptFormat
-from yt_dlp_transcriber.domain.time_utils import parse_iso_timestamp
-from yt_dlp_transcriber.domain.types import ItemId, SessionId
+from domain.models import ItemKind, ManifestItem, TranscriptFormat
+from domain.time_utils import parse_iso_timestamp
+from domain.types import ItemId, SessionId
 
 
 def _make_item(*, item_id: str, relpath: str, size: int, pinned: bool, expires_at: str | None) -> ManifestItem:

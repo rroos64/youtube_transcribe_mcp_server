@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Mapping
 
-from yt_dlp_transcriber.domain.types import ItemId, SessionId
+from domain.types import ItemId, SessionId
 
 
 class TranscriptFormat(str, Enum):

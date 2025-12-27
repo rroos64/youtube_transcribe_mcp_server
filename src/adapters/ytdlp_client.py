@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterator
 
-from yt_dlp_transcriber.config import AppConfig
-from yt_dlp_transcriber.domain.errors import ExternalCommandError
-from yt_dlp_transcriber.logging_utils import log_debug, log_error
+from config import AppConfig
+from domain.errors import ExternalCommandError
+from logging_utils import log_debug, log_error
 
 
 @dataclass(frozen=True)

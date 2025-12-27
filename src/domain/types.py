@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from yt_dlp_transcriber.domain.errors import InvalidItemId, InvalidSessionId
+from domain.errors import InvalidItemId, InvalidSessionId
 
 _ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
