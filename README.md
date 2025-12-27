@@ -818,6 +818,16 @@ logging.basicConfig(level=logging.INFO)
 logging.getLogger("yt_dlp_transcriber").setLevel(logging.DEBUG)
 ```
 
+## Contributing
+
+Thanks for the interest. To keep the project focused, please open an issue
+before starting a PR so we can agree on scope. I make the final call on what
+gets merged, and I may decline changes that don't fit the project's goals.
+
+If you submit a PR, keep it small and focused, include tests where relevant,
+and update documentation when behavior changes. By contributing, you agree
+that your work can be licensed under the MIT License.
+
 ## Repository layout
 
 - `src/server.py`: thin composition root that starts FastMCP.
