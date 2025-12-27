@@ -58,3 +58,11 @@ def test_config_env_overrides():
 def test_config_default_ttl_fallback():
     config = AppConfig.from_env({"DEFAULT_TTL_SEC": "7200"})
     assert config.default_ttl_sec == 7200
+
+
+def test_config_from_env_uses_os_environ(monkeypatch):
+    monkeypatch.setenv("YTDLP_BIN", "yt-custom")
+    monkeypatch.setenv("DATA_DIR", "/tmp/data_env")
+    config = AppConfig.from_env()
+    assert config.ytdlp_bin == "yt-custom"
+    assert config.data_dir == Path("/tmp/data_env")

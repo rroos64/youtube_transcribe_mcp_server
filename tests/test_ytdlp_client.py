@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+from pathlib import Path
 from subprocess import CompletedProcess
 
 import pytest
@@ -74,3 +76,77 @@ def test_ytdlp_client_info_cache_respects_ttl():
     clock["now"] += 61
     client.get_info("https://youtube.com/watch?v=abc")
     assert calls["count"] == 2
+
+
+def test_ytdlp_client_get_info_missing_json_raises():
+    config = AppConfig.from_env({"YTDLP_TIMEOUT_SEC": "5"})
+
+    def fake_run(cmd, **kwargs):
+        return CompletedProcess(cmd, 0, stdout="not json here")
+
+    client = YtDlpClient(config, runner=fake_run)
+
+    with pytest.raises(ExternalCommandError):
+        client.get_info("https://youtube.com/watch?v=abc")
+
+
+def test_ytdlp_client_get_info_invalid_json_raises():
+    config = AppConfig.from_env({"YTDLP_TIMEOUT_SEC": "5"})
+
+    def fake_run(cmd, **kwargs):
+        return CompletedProcess(cmd, 0, stdout="{bad}\n")
+
+    client = YtDlpClient(config, runner=fake_run)
+
+    with pytest.raises(ExternalCommandError):
+        client.get_info("https://youtube.com/watch?v=abc")
+
+
+def test_ytdlp_client_get_subtitles_success():
+    config = AppConfig.from_env({"YTDLP_TIMEOUT_SEC": "5"})
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        workdir = Path(kwargs["cwd"])
+        (workdir / "video.en.vtt").write_text("WEBVTT\\n\\nHello", encoding="utf-8")
+        return CompletedProcess(cmd, 0, stdout="ok")
+
+    client = YtDlpClient(config, runner=fake_run)
+    subs = client.get_subtitles("https://youtube.com/watch?v=abc")
+
+    assert subs.picked_file == "video.en.vtt"
+    assert "Hello" in subs.vtt_text
+    assert "--write-auto-subs" in captured["cmd"]
+
+
+def test_ytdlp_client_get_subtitles_missing_files(tmp_path):
+    config = AppConfig.from_env({"YTDLP_TIMEOUT_SEC": "5"})
+
+    @contextmanager
+    def temp_dir_factory(_prefix: str):
+        yield tmp_path
+
+    def fake_run(cmd, **kwargs):
+        return CompletedProcess(cmd, 0, stdout="no files")
+
+    client = YtDlpClient(config, runner=fake_run, temp_dir_factory=temp_dir_factory)
+
+    with pytest.raises(ExternalCommandError):
+        client.get_subtitles("https://youtube.com/watch?v=abc")
+
+
+def test_ytdlp_client_get_subtitles_failure_code(tmp_path):
+    config = AppConfig.from_env({"YTDLP_TIMEOUT_SEC": "5"})
+
+    @contextmanager
+    def temp_dir_factory(_prefix: str):
+        yield tmp_path
+
+    def fake_run(cmd, **kwargs):
+        return CompletedProcess(cmd, 1, stdout="boom")
+
+    client = YtDlpClient(config, runner=fake_run, temp_dir_factory=temp_dir_factory)
+
+    with pytest.raises(ExternalCommandError):
+        client.get_subtitles("https://youtube.com/watch?v=abc")

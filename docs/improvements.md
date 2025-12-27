@@ -135,3 +135,7 @@ Each step starts by updating tests to match the new structure before changing im
 - Documentation: updated README examples to note yt-dlp metadata caching and added logging guidance.
 - MCP errors: added explicit error codes (`ERR_INVALID_SESSION`, `ERR_INVALID_ITEM`, `ERR_NOT_FOUND`, `ERR_EXPIRED_ITEM`, `ERR_EXTERNAL_COMMAND`) in mapped exceptions and documented them in README.
 - Documentation: added coverage commands to README and added `coverage` to dev requirements.
+- Coverage: added tests for MCP session/templates/resources helpers, FastMCP fallback import, logging helper branches, config env defaults, filesystem symlink safety, and service builder defaults.
+- Coverage: added manifest repository and session service tests for error branches, cleanup edge cases, lock handling, and input validation.
+- Coverage: added yt-dlp client and transcription service tests for subtitle failures, parsing edge cases, writer outputs, and auto-transcribe validation.
+- Coverage: refined new tests around cleanup limits, session header extraction, and writer mapping to keep coverage suites green.

@@ -1,7 +1,7 @@
 import pytest
 
 from yt_dlp_transcriber.domain.models import ItemKind, Manifest, ManifestItem, TranscriptFormat
-from yt_dlp_transcriber.domain.types import ItemId, SessionId
+from yt_dlp_transcriber.domain.types import ItemId, SessionId, _validate_id
 
 
 def test_session_id_validation():
@@ -25,6 +25,11 @@ def test_item_id_validation():
 
     with pytest.raises(ValueError):
         ItemId("bad id")
+
+
+def test_validate_id_unknown_name_raises():
+    with pytest.raises(ValueError):
+        _validate_id("", "other")
 
 
 def test_manifest_item_round_trip():
