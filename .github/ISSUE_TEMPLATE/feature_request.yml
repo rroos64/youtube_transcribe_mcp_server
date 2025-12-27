@@ -1,0 +1,92 @@
+name: "Feature request (TDD)"
+description: "Propose a new capability with testable specs."
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Feature work is test-first here. If you cannot define tests, the feature is not ready.
+        Please provide executable specs and the tests you will write first (red).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are we solving, for whom, and why now?
+    validations:
+      required: true
+  - type: textarea
+    id: user_story
+    attributes:
+      label: User story
+      description: Write as "As a <user>, I want <goal>, so that <benefit>."
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in scope (include constraints and limits).
+      placeholder: "In scope: ...\nOut of scope: ..."
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Requirements (testable)
+      description: Bullet requirements that can be verified by automated tests.
+      placeholder: |
+        - Must ...
+        - Must not ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria (Given/When/Then)
+      description: These should translate directly into tests/specs.
+      placeholder: |
+        Given ...
+        When ...
+        Then ...
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Tests you will write first (red)
+      description: List exact tests/specs to implement before code changes.
+      placeholder: |
+        - tests/test_feature.py::test_behavior
+          Given ...
+          When ...
+          Then ...
+    validations:
+      required: true
+  - type: textarea
+    id: nonfunctional
+    attributes:
+      label: Non-functional requirements
+      description: Performance, reliability, security, compatibility, etc.
+      placeholder: "Example: Must handle 1000 req/min; must be backward compatible."
+  - type: textarea
+    id: approach
+    attributes:
+      label: Proposed approach (optional)
+      description: Implementation idea or high-level design.
+  - type: textarea
+    id: docs
+    attributes:
+      label: Documentation impact
+      description: What docs/examples must be updated?
+  - type: checkboxes
+    id: tdd_checklist
+    attributes:
+      label: TDD checklist
+      options:
+        - label: I can express the feature as automated tests before implementation.
+          required: true
+        - label: Requirements are specific, measurable, and testable.
+          required: true
+        - label: I listed scope and non-goals.
+          required: true

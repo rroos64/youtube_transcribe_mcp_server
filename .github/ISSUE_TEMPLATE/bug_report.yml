@@ -1,0 +1,98 @@
+name: "Bug report (TDD)"
+description: "Report a defect with a reproducible failing test/spec."
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. This project is test-first (TDD).
+        If you cannot express the expected behavior as tests, please open a discussion instead.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Short, factual description of the defect.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen (testable, precise).
+      placeholder: "When X happens, the system should Y."
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happens (include error messages or wrong output).
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: Smallest set of steps, inputs, or code to reproduce.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: failing_tests
+    attributes:
+      label: Failing test(s) you will write first
+      description: Describe the exact tests you will write first (red). Include file names, test cases, and assertions.
+      placeholder: |
+        - tests/test_x.py::test_y
+          Given ...
+          When ...
+          Then ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria (Given/When/Then)
+      description: These are executable specs; they should map to automated tests.
+      placeholder: |
+        Given ...
+        When ...
+        Then ...
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - blocker
+        - high
+        - medium
+        - low
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python version, client, and anything else relevant.
+      placeholder: "OS, Python version, client, config values, etc."
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / traces
+      description: Paste relevant logs or stack traces.
+      render: shell
+  - type: checkboxes
+    id: tdd_checklist
+    attributes:
+      label: TDD checklist
+      options:
+        - label: I can express the expected behavior as automated tests.
+          required: true
+        - label: I provided clear, testable acceptance criteria.
+          required: true
+        - label: I confirmed the repro is minimal and deterministic.
+          required: true

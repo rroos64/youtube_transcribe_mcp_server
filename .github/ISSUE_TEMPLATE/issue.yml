@@ -1,0 +1,62 @@
+name: "Issue / task (TDD)"
+description: "General issue or task with testable requirements."
+title: "[Issue]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This project is test-first. If you cannot define tests/specs, the task is not ready.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Background and why this matters.
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Requirements (testable)
+      description: List requirements that can be verified by automated tests.
+      placeholder: |
+        - Must ...
+        - Must not ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria (Given/When/Then)
+      description: These should translate into executable specs.
+      placeholder: |
+        Given ...
+        When ...
+        Then ...
+    validations:
+      required: true
+  - type: textarea
+    id: tests
+    attributes:
+      label: Tests you will write first (red)
+      description: Exact tests/specs to implement before code changes.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope / constraints
+      description: In scope vs out of scope, plus any constraints.
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks / dependencies
+      description: Known risks, dependencies, or migration concerns.
+  - type: checkboxes
+    id: tdd_checklist
+    attributes:
+      label: TDD checklist
+      options:
+        - label: I can express the goal as automated tests before implementation.
+          required: true
+        - label: Requirements are clear and testable.
+          required: true
