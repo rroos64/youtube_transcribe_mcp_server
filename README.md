@@ -599,6 +599,8 @@ Each session maintains a manifest:
 
 Environment variables:
 
+See `.env.example` for a copy-paste starting point.
+
 - `PORT` (default `8080`): HTTP port.
 - `DATA_DIR` (default `/data`): output directory for transcripts.
 - `YTDLP_BIN` (default `yt-dlp`): path to the yt-dlp binary.
